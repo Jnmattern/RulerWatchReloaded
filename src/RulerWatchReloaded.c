@@ -52,7 +52,12 @@ static bool animRunning = false;
 static AnimationImplementation animImpl;
 static Animation *anim;
 
+<<<<<<< HEAD
 static void drawDial(GContext *ctx) {
+=======
+
+static void drawDisplay(GContext *ctx) {
+>>>>>>> FETCH_HEAD
   if (invert) {
     graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
@@ -73,6 +78,7 @@ static void drawDial(GContext *ctx) {
   }
 }
 
+<<<<<<< HEAD
 
 /*
  * 
@@ -90,6 +96,26 @@ static void drawDial(GContext *ctx) {
  * In "animRunning" day mode, position is depending on the day
  * 
  */
+=======
+static void layer_update(Layer *me, GContext* ctx) {
+  int yoffset, bitmap_ypos, y, first_hour, h;
+  int first_day, d;
+
+  // Compute vertical offset : 60 minutes is 'hour_size' pixels
+  yoffset = hour_size * now.tm_min / 60;
+
+  for (first_hour = now.tm_hour, bitmap_ypos = LINE_YPOS - yoffset;
+       bitmap_ypos > 0;
+       first_hour--, bitmap_ypos -= hour_size);
+
+  if (first_hour < 0) {
+    first_hour += 24;
+  }
+
+  drawDisplay(ctx);
+
+  graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+>>>>>>> FETCH_HEAD
 
 static void drawRuler(GContext *ctx) {
   unsigned int i, j;
@@ -106,12 +132,53 @@ static void drawRuler(GContext *ctx) {
   yh = LINE_YPOS - hour_offset;
   
   if (animRunning) {
+<<<<<<< HEAD
     if (anim_phase == 1) {
       // Phase 1, move from hour to day
       y = ((yd - yh) * (int)anim_time) / (int)ANIMATION_NORMALIZED_MAX + yh;
     } else if (anim_phase == 2) {
       // Phase 2, stay on day
       y = yd;
+=======
+    // Anim is running, show Date
+    // Animated ruler forward to pass midnight then go to the right day number
+    // Animation in 3 phases :
+    //    - Phase 1 : go to day
+    //    - Phase 2 : stay on day
+    //    - Phase 3 : go back to hour
+
+    // Possible cases
+    //   1. day is in [1;23]
+    //     1.1. hour < day, go forward
+    //     1.2. hour > day, go backward
+    //   2. day is >= 24 and hour <=22, go backward and pass midnight
+
+    if (anim_time < phase2_start) {
+      // Phase 1 : go forward to day, always go through midnight
+
+    } else if (anim_time < phase3_start) {
+      // Phase 2 : stay on day
+      for (first_day = now.tm_mday, bitmap_ypos = LINE_YPOS;
+           bitmap_ypos > 0;
+           first_day--, bitmap_ypos -= hour_size);
+
+      if (first_day <= 0) {
+        first_day += 31;
+      }
+
+      for (d = first_day, y = bitmap_ypos; y < 168; d++, y += hour_size) {
+        rect.origin.y = y;
+        graphics_draw_bitmap_in_rect(ctx, ruler_bitmap, rect);
+
+        if (d > 31) {
+          d -= 31;
+        }
+
+        rect_text.origin.y = y - 19;
+        snprintf(text, sizeof(text), "%d", d);
+        graphics_draw_text(ctx, 	text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+      }
+>>>>>>> FETCH_HEAD
     } else {
       // Phase 3, move from day to hour
       y = ((yh - yd) * (int)anim_time) / (int)ANIMATION_NORMALIZED_MAX + yd;
@@ -140,10 +207,16 @@ static void drawRuler(GContext *ctx) {
   }
 }
 
+<<<<<<< HEAD
 static void layer_update(Layer *me, GContext* ctx) {
   drawDial(ctx);
   drawRuler(ctx);
 }
+=======
+static void handleAnim(struct Animation *anim, const uint32_t normTime) {
+  anim_time = normTime;
+  layer_mark_dirty(layer);
+>>>>>>> FETCH_HEAD
 
 static void rescheduleAnim(struct Animation *anim) {
   anim_phase++;
@@ -155,11 +228,14 @@ static void rescheduleAnim(struct Animation *anim) {
   }
 }
 
+<<<<<<< HEAD
 static void handleAnim(struct Animation *anim, const uint32_t normTime) {
   anim_time = normTime;
   layer_mark_dirty(layer);
 }
 
+=======
+>>>>>>> FETCH_HEAD
 static void handle_tap(AccelAxisType axis, int32_t direction) {
   if (!animation_is_scheduled(anim)) {
     animRunning = true;
@@ -207,6 +283,10 @@ static bool checkAndSaveInt(int *var, int val, int key) {
   }
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> FETCH_HEAD
 static void in_dropped_handler(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "in_dropped_handler reason = %d", (int)reason);
 }
