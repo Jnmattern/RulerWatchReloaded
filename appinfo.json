@@ -20,11 +20,6 @@
         "type": "png",
         "name": "IMAGE_MENU_ICON",
         "file": "images/ruler_icon.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_RULER",
-        "file": "images/ruler.png"
       }
     ]
   }

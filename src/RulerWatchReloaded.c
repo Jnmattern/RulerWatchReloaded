@@ -2,7 +2,12 @@
 
 #define RULER_XOFFSET 24
 #define LINE_YPOS 83
-#define ANIM_DURATION 6000
+#define ANIM_DURATION 2000
+#define LINE_INTERVAL 5
+#define MARK_0  42
+#define MARK_5  12
+#define MARK_15 22
+#define MARK_30 32
 
 enum {
   CONFIG_KEY_INVERT		= 1010,
@@ -12,15 +17,20 @@ enum {
 static Window *window;
 static Layer *rootLayer;
 static Layer *layer;
-static GBitmap *ruler_bitmap;
-static int hour_size = 0;
-static GRect rect = { { RULER_XOFFSET, 0 }, { 0, 0 } };
+static int hour_size = 12 * LINE_INTERVAL; // 12 marks, one every 5 minutes
+static int hour_part_size;
 static GRect rect_text = { { RULER_XOFFSET, 0 }, { 60, 40 } };
 static GPoint line1_p1 = { 0, LINE_YPOS };
 static GPoint line1_p2 = { 143, LINE_YPOS };
 static GPoint line2_p1;
 static GPoint line2_p2;
+static GPoint mark1 = { 24, 0 };
+static GPoint mark2 = { 0, 0 };
 
+static int markWidth[12] = { MARK_0, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5, MARK_30, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5 };
+
+static int labels[59] = { 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0,
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1 };
 static struct tm now;
 
 static int invert = false;
@@ -32,14 +42,17 @@ static GColor COLOR_BACKGROUND = GColorWhite;
 static char text[3] = "  ";
 
 static uint32_t anim_time = 0;
+static int anim_phase = 0;
+static uint32_t phase_duration = ANIMATION_NORMALIZED_MAX / 3;
 static uint32_t phase2_start = ANIMATION_NORMALIZED_MAX / 3;
 static uint32_t phase3_start = 2 * ANIMATION_NORMALIZED_MAX / 3;
+
 static bool animRunning = false;
+
 static AnimationImplementation animImpl;
 static Animation *anim;
 
-
-static void drawRuler(GContext *ctx) {
+static void drawDial(GContext *ctx) {
   if (invert) {
     graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
@@ -60,76 +73,102 @@ static void drawRuler(GContext *ctx) {
   }
 }
 
-void computeFirstHourAndBitmapPos(int yoffset, int *first_hour, int *bitmap_ypos) {
 
-}
+/*
+ * 
+ * Ruler format :
+ * 
+ *    <------------------HOURS----------------><---------------------DAYS---------------------->
+ *    |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | |
+ *    22 0  2  4  6  8  10 12 14 16 18 20 22 0  2  4  6  8  10 12 14 16 18 20 22 24 26 28 30 1 2
+ *
+ * Hours part is (hour_size * 26) pixels
+ * Days part is (hour_size * 33) pixels
+ * Total size is (hour_size * 59) pixels
+ * 
+ * In "normal" hour mode, position is depending only on the number of minutes since midnight
+ * In "animRunning" day mode, position is depending on the day
+ * 
+ */
 
-void layer_update(Layer *me, GContext* ctx) {
-  int yoffset, bitmap_ypos, y, first_hour, h, pixels_to_move;
-
-  // Compute vertical offset : 60 minutes is 'hour_size' pixels
-  yoffset = hour_size * now.tm_min / 60;
-
-  for (first_hour = now.tm_hour, bitmap_ypos = LINE_YPOS - yoffset; bitmap_ypos > 0; first_hour--, bitmap_ypos -= hour_size);
-
-  if (first_hour < 0) {
-    first_hour += 24;
-  }
-
-  drawRuler(ctx);
-
-  graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
-
+static void drawRuler(GContext *ctx) {
+  unsigned int i, j;
+  int hour_offset, day_offset, yh, yd, y;
+  uint32_t t;
+  
+  // Pixel offset of the middle of the screen
+  // Offset for hour mode, starting at 22
+  hour_offset = ((now.tm_hour+2) * hour_size) + (now.tm_min * hour_size / 60);
+  // Offset for day mode
+  day_offset = hour_part_size + now.tm_mday * hour_size;
+  
+  yd = LINE_YPOS - day_offset;
+  yh = LINE_YPOS - hour_offset;
+  
   if (animRunning) {
-    // Anim is running, show Date
-    // Animated ruler forward to pass midnight then go to the right day number
-    // Animation in 3 phases :
-    //    - Phase 1 : go to day
-    //    - Phase 2 : stay on day
-    //    - Phase 3 : go back to hour
-    if (anim_time < phase2_start) {
-      // Phase 1 : go forward to day, always go through midnight
-
-    } else if (anim_time < phase3_start) {
-      // Phase 2 : stay on day
-
+    if (anim_phase == 1) {
+      // Phase 1, move from hour to day
+      y = ((yd - yh) * (int)anim_time) / (int)ANIMATION_NORMALIZED_MAX + yh;
+    } else if (anim_phase == 2) {
+      // Phase 2, stay on day
+      y = yd;
     } else {
-      // Phase 3 : go back to hour
+      // Phase 3, move from day to hour
+      y = ((yh - yd) * (int)anim_time) / (int)ANIMATION_NORMALIZED_MAX + yd;
     }
   } else {
-    // Anim is not running, draw hours
-    for (h = first_hour, y = bitmap_ypos; y < 168; h++, y += hour_size) {
-      rect.origin.y = y;
-      graphics_draw_bitmap_in_rect(ctx, ruler_bitmap, rect);
-
-      if (h >= 24) {
-        h -= 24;
+    y = yh;
+  }
+    
+  for (i=0; i<sizeof(labels); i++) {
+    for (j=0; j<12; j++) {
+      if ((y >= 0) && (y < 168)) {
+        mark1.y = mark2.y = y;
+        mark2.x = mark1.x + markWidth[j];
+        graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
+        graphics_draw_line(ctx, mark1, mark2);
+        
+        if (j == 0) {
+          rect_text.origin.y = mark1.y - 19;
+          snprintf(text, sizeof(text), "%d", labels[i]);
+          graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+          graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+        }
       }
-
-      rect_text.origin.y = y - 19;
-      snprintf(text, sizeof(text), "%d", h);
-      graphics_draw_text(ctx, 	text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+      y += LINE_INTERVAL;
     }
   }
 }
 
-void handleAnim(struct Animation *anim, const uint32_t normTime) {
-  anim_time = normTime;
-  layer_mark_dirty(layer);
+static void layer_update(Layer *me, GContext* ctx) {
+  drawDial(ctx);
+  drawRuler(ctx);
+}
 
-  if (normTime == ANIMATION_NORMALIZED_MAX) {
-    animRunning = false;
+static void rescheduleAnim(struct Animation *anim) {
+  anim_phase++;
+  if (anim_phase <= 3) {
+    animation_schedule(anim);
+  } else {
+      anim_phase = 0;
+      animRunning = false;
   }
 }
 
-void handle_tap(AccelAxisType axis, int32_t direction) {
+static void handleAnim(struct Animation *anim, const uint32_t normTime) {
+  anim_time = normTime;
+  layer_mark_dirty(layer);
+}
+
+static void handle_tap(AccelAxisType axis, int32_t direction) {
   if (!animation_is_scheduled(anim)) {
     animRunning = true;
+    anim_phase = 1;
     animation_schedule(anim);
   }
 }
 
-void handle_tick(struct tm *cur, TimeUnits units_changed) {
+static void handle_tick(struct tm *cur, TimeUnits units_changed) {
   now = *cur;
 
   if (vibration && now.tm_min == 0) {
@@ -139,7 +178,7 @@ void handle_tick(struct tm *cur, TimeUnits units_changed) {
   layer_mark_dirty(layer);
 }
 
-void setColors() {
+static void setColors() {
   if (invert) {
     COLOR_BACKGROUND = GColorBlack;
     COLOR_FOREGROUND = GColorWhite;
@@ -149,16 +188,16 @@ void setColors() {
   }
 }
 
-void applyConfig() {
+static void applyConfig() {
   setColors();
   layer_mark_dirty(layer);
 }
 
-void logVariables(const char *msg) {
+static void logVariables(const char *msg) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n", msg, invert, vibration);
 }
 
-bool checkAndSaveInt(int *var, int val, int key) {
+static bool checkAndSaveInt(int *var, int val, int key) {
   if (*var != val) {
     *var = val;
     persist_write_int(key, val);
@@ -168,12 +207,11 @@ bool checkAndSaveInt(int *var, int val, int key) {
   }
 }
 
-
-void in_dropped_handler(AppMessageResult reason, void *context) {
+static void in_dropped_handler(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "in_dropped_handler reason = %d", (int)reason);
 }
 
-void in_received_handler(DictionaryIterator *received, void *context) {
+static void in_received_handler(DictionaryIterator *received, void *context) {
   bool somethingChanged = false;
 
   Tuple *invertTuple = dict_find(received, CONFIG_KEY_INVERT);
@@ -191,7 +229,7 @@ void in_received_handler(DictionaryIterator *received, void *context) {
   }
 }
 
-void readConfig() {
+static void readConfig() {
   if (persist_exists(CONFIG_KEY_INVERT)) {
     invert = persist_read_int(CONFIG_KEY_INVERT);
   } else {
@@ -214,7 +252,7 @@ static void app_message_init(void) {
 }
 
 
-void init() {
+static void init() {
   time_t t;
 
   line2_p1 = line1_p1;
@@ -237,18 +275,15 @@ void init() {
   layer_set_update_proc(layer, layer_update);
   layer_add_child(rootLayer, layer);
 
-  ruler_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_RULER);
-  // Get bitmap height, this will be the vertical hour span
-  hour_size = ruler_bitmap->bounds.size.h;
-  rect.size = ruler_bitmap->bounds.size;
-  rect_text.origin.x += rect.size.w + 10;
+  rect_text.origin.x += MARK_0 + 10;
+  hour_part_size = 26 * hour_size;
 
   t = time(NULL);
   now = *(localtime(&t));
 
   animImpl.setup = NULL;
   animImpl.update = handleAnim;
-  animImpl.teardown = NULL;
+  animImpl.teardown = rescheduleAnim;
 
   anim = animation_create();
   animation_set_delay(anim, 0);
@@ -260,14 +295,13 @@ void init() {
 }
 
 
-void deinit() {
+static void deinit() {
   if (animRunning) {
     animation_unschedule(anim);
   }
   animation_destroy(anim);
   accel_tap_service_unsubscribe();
   tick_timer_service_unsubscribe();
-  gbitmap_destroy(ruler_bitmap);
   layer_destroy(layer);
   window_destroy(window);
 }
