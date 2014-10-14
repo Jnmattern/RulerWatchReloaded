@@ -39,7 +39,7 @@ static AnimationImplementation animImpl;
 static Animation *anim;
 
 
-static void drawRuler(GContext *ctx) {
+static void drawDisplay(GContext *ctx) {
   if (invert) {
     graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
@@ -60,23 +60,22 @@ static void drawRuler(GContext *ctx) {
   }
 }
 
-void computeFirstHourAndBitmapPos(int yoffset, int *first_hour, int *bitmap_ypos) {
-
-}
-
-void layer_update(Layer *me, GContext* ctx) {
-  int yoffset, bitmap_ypos, y, first_hour, h, pixels_to_move;
+static void layer_update(Layer *me, GContext* ctx) {
+  int yoffset, bitmap_ypos, y, first_hour, h;
+  int first_day, d;
 
   // Compute vertical offset : 60 minutes is 'hour_size' pixels
   yoffset = hour_size * now.tm_min / 60;
 
-  for (first_hour = now.tm_hour, bitmap_ypos = LINE_YPOS - yoffset; bitmap_ypos > 0; first_hour--, bitmap_ypos -= hour_size);
+  for (first_hour = now.tm_hour, bitmap_ypos = LINE_YPOS - yoffset;
+       bitmap_ypos > 0;
+       first_hour--, bitmap_ypos -= hour_size);
 
   if (first_hour < 0) {
     first_hour += 24;
   }
 
-  drawRuler(ctx);
+  drawDisplay(ctx);
 
   graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
 
@@ -87,12 +86,38 @@ void layer_update(Layer *me, GContext* ctx) {
     //    - Phase 1 : go to day
     //    - Phase 2 : stay on day
     //    - Phase 3 : go back to hour
+
+    // Possible cases
+    //   1. day is in [1;23]
+    //     1.1. hour < day, go forward
+    //     1.2. hour > day, go backward
+    //   2. day is >= 24 and hour <=22, go backward and pass midnight
+
     if (anim_time < phase2_start) {
       // Phase 1 : go forward to day, always go through midnight
 
     } else if (anim_time < phase3_start) {
       // Phase 2 : stay on day
+      for (first_day = now.tm_mday, bitmap_ypos = LINE_YPOS;
+           bitmap_ypos > 0;
+           first_day--, bitmap_ypos -= hour_size);
 
+      if (first_day <= 0) {
+        first_day += 31;
+      }
+
+      for (d = first_day, y = bitmap_ypos; y < 168; d++, y += hour_size) {
+        rect.origin.y = y;
+        graphics_draw_bitmap_in_rect(ctx, ruler_bitmap, rect);
+
+        if (d > 31) {
+          d -= 31;
+        }
+
+        rect_text.origin.y = y - 19;
+        snprintf(text, sizeof(text), "%d", d);
+        graphics_draw_text(ctx, 	text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+      }
     } else {
       // Phase 3 : go back to hour
     }
@@ -113,7 +138,7 @@ void layer_update(Layer *me, GContext* ctx) {
   }
 }
 
-void handleAnim(struct Animation *anim, const uint32_t normTime) {
+static void handleAnim(struct Animation *anim, const uint32_t normTime) {
   anim_time = normTime;
   layer_mark_dirty(layer);
 
@@ -122,14 +147,14 @@ void handleAnim(struct Animation *anim, const uint32_t normTime) {
   }
 }
 
-void handle_tap(AccelAxisType axis, int32_t direction) {
+static void handle_tap(AccelAxisType axis, int32_t direction) {
   if (!animation_is_scheduled(anim)) {
     animRunning = true;
     animation_schedule(anim);
   }
 }
 
-void handle_tick(struct tm *cur, TimeUnits units_changed) {
+static void handle_tick(struct tm *cur, TimeUnits units_changed) {
   now = *cur;
 
   if (vibration && now.tm_min == 0) {
@@ -139,7 +164,7 @@ void handle_tick(struct tm *cur, TimeUnits units_changed) {
   layer_mark_dirty(layer);
 }
 
-void setColors() {
+static void setColors() {
   if (invert) {
     COLOR_BACKGROUND = GColorBlack;
     COLOR_FOREGROUND = GColorWhite;
@@ -149,16 +174,16 @@ void setColors() {
   }
 }
 
-void applyConfig() {
+static void applyConfig() {
   setColors();
   layer_mark_dirty(layer);
 }
 
-void logVariables(const char *msg) {
+static void logVariables(const char *msg) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n", msg, invert, vibration);
 }
 
-bool checkAndSaveInt(int *var, int val, int key) {
+static bool checkAndSaveInt(int *var, int val, int key) {
   if (*var != val) {
     *var = val;
     persist_write_int(key, val);
@@ -169,11 +194,11 @@ bool checkAndSaveInt(int *var, int val, int key) {
 }
 
 
-void in_dropped_handler(AppMessageResult reason, void *context) {
+static void in_dropped_handler(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "in_dropped_handler reason = %d", (int)reason);
 }
 
-void in_received_handler(DictionaryIterator *received, void *context) {
+static void in_received_handler(DictionaryIterator *received, void *context) {
   bool somethingChanged = false;
 
   Tuple *invertTuple = dict_find(received, CONFIG_KEY_INVERT);
@@ -191,7 +216,7 @@ void in_received_handler(DictionaryIterator *received, void *context) {
   }
 }
 
-void readConfig() {
+static void readConfig() {
   if (persist_exists(CONFIG_KEY_INVERT)) {
     invert = persist_read_int(CONFIG_KEY_INVERT);
   } else {
@@ -214,7 +239,7 @@ static void app_message_init(void) {
 }
 
 
-void init() {
+static void init() {
   time_t t;
 
   line2_p1 = line1_p1;
@@ -260,7 +285,7 @@ void init() {
 }
 
 
-void deinit() {
+static void deinit() {
   if (animRunning) {
     animation_unschedule(anim);
   }
