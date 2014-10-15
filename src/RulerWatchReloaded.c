@@ -2,8 +2,10 @@
 
 #define RULER_XOFFSET 24
 #define LINE_YPOS 83
+#define ANIM_DELAY 1000
 #define ANIM_DURATION 2000
 #define LINE_INTERVAL 5
+#define TEXT_OFFSET 5
 #define MARK_0  42
 #define MARK_5  12
 #define MARK_15 22
@@ -19,7 +21,7 @@ static Layer *rootLayer;
 static Layer *layer;
 static int hour_size = 12 * LINE_INTERVAL; // 12 marks, one every 5 minutes
 static int hour_part_size;
-static GRect rect_text = { { RULER_XOFFSET, 0 }, { 60, 40 } };
+static GRect rect_text = { { RULER_XOFFSET, 0 }, { 60, 60 } };
 static GPoint line1_p1 = { 0, LINE_YPOS };
 static GPoint line1_p2 = { 143, LINE_YPOS };
 static GPoint line2_p1;
@@ -43,9 +45,6 @@ static char text[3] = "  ";
 
 static uint32_t anim_time = 0;
 static int anim_phase = 0;
-static uint32_t phase_duration = ANIMATION_NORMALIZED_MAX / 3;
-static uint32_t phase2_start = ANIMATION_NORMALIZED_MAX / 3;
-static uint32_t phase3_start = 2 * ANIMATION_NORMALIZED_MAX / 3;
 
 static bool animRunning = false;
 
@@ -93,8 +92,7 @@ static void drawDial(GContext *ctx) {
 static void drawRuler(GContext *ctx) {
   unsigned int i, j;
   int hour_offset, day_offset, yh, yd, y;
-  uint32_t t;
-  
+
   // Pixel offset of the middle of the screen
   // Offset for hour mode, starting at 22
   hour_offset = ((now.tm_hour+2) * hour_size) + (now.tm_min * hour_size / 60);
@@ -108,30 +106,33 @@ static void drawRuler(GContext *ctx) {
     if (anim_phase == 1) {
       // Phase 1, move from hour to day
       y = ((yd - yh) * (int)anim_time) / (int)ANIMATION_NORMALIZED_MAX + yh;
-    } else if (anim_phase == 2) {
-      // Phase 2, stay on day
-      y = yd;
     } else {
-      // Phase 3, move from day to hour
+      // Phase 2, move from day to hour
       y = ((yh - yd) * (int)anim_time) / (int)ANIMATION_NORMALIZED_MAX + yd;
     }
   } else {
     y = yh;
   }
     
+  graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
   for (i=0; i<sizeof(labels); i++) {
     for (j=0; j<12; j++) {
       if ((y >= 0) && (y < 168)) {
         mark1.y = mark2.y = y;
         mark2.x = mark1.x + markWidth[j];
-        graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
         graphics_draw_line(ctx, mark1, mark2);
-        
+        mark1.y = mark2.y = y - 1;
+        graphics_draw_line(ctx, mark1, mark2);
+        mark1.y = mark2.y = y + 1;
+        graphics_draw_line(ctx, mark1, mark2);
+
         if (j == 0) {
-          rect_text.origin.y = mark1.y - 19;
+
+          rect_text.origin.y = mark1.y - 32;
           snprintf(text, sizeof(text), "%d", labels[i]);
           graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
-          graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+          graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49), rect_text, GTextOverflowModeWordWrap,
+                             GTextAlignmentLeft, NULL);
         }
       }
       y += LINE_INTERVAL;
@@ -146,11 +147,11 @@ static void layer_update(Layer *me, GContext* ctx) {
 
 static void rescheduleAnim(struct Animation *anim) {
   anim_phase++;
-  if (anim_phase <= 3) {
+  if (anim_phase == 2) {
     animation_schedule(anim);
   } else {
-      anim_phase = 0;
-      animRunning = false;
+    anim_phase = 0;
+    animRunning = false;
   }
 }
 
@@ -274,7 +275,7 @@ static void init() {
   layer_set_update_proc(layer, layer_update);
   layer_add_child(rootLayer, layer);
 
-  rect_text.origin.x += MARK_0 + 10;
+  rect_text.origin.x += MARK_0 + TEXT_OFFSET;
   hour_part_size = 26 * hour_size;
 
   t = time(NULL);
@@ -285,7 +286,7 @@ static void init() {
   animImpl.teardown = rescheduleAnim;
 
   anim = animation_create();
-  animation_set_delay(anim, 0);
+  animation_set_delay(anim, ANIM_DELAY);
   animation_set_duration(anim, ANIM_DURATION);
   animation_set_implementation(anim, &animImpl);
 
