@@ -117,18 +117,19 @@ static void drawRuler(GContext *ctx) {
   graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
   for (i=0; i<sizeof(labels); i++) {
     for (j=0; j<12; j++) {
-      if ((y >= 0) && (y < 168)) {
-        mark1.y = mark2.y = y;
-        mark2.x = mark1.x + markWidth[j];
-        graphics_draw_line(ctx, mark1, mark2);
-        mark1.y = mark2.y = y - 1;
-        graphics_draw_line(ctx, mark1, mark2);
-        mark1.y = mark2.y = y + 1;
-        graphics_draw_line(ctx, mark1, mark2);
-
+      if ((y > -20) && (y < 188)) {
+        if ((y >= 0) && (y < 168)) {
+          mark1.y = mark2.y = y;
+          mark2.x = mark1.x + markWidth[j];
+          graphics_draw_line(ctx, mark1, mark2);
+          mark1.y = mark2.y = y - 1;
+          graphics_draw_line(ctx, mark1, mark2);
+          mark1.y = mark2.y = y + 1;
+          graphics_draw_line(ctx, mark1, mark2);
+        }
+        
         if (j == 0) {
-
-          rect_text.origin.y = mark1.y - 32;
+          rect_text.origin.y = y - 32;
           snprintf(text, sizeof(text), "%d", labels[i]);
           graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
           graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49), rect_text, GTextOverflowModeWordWrap,
