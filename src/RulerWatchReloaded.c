@@ -13,8 +13,9 @@
 #define NUM_LABELS 59
 
 enum {
-  CONFIG_KEY_INVERT		= 1010,
-  CONFIG_KEY_VIBRATION	= 1011
+  CONFIG_KEY_INVERT =     1010,
+  CONFIG_KEY_VIBRATION	 =  1011,
+  CONFIG_KEY_LEGACY =     1012
 };
 
 static Window *window;
@@ -41,6 +42,7 @@ static struct tm now;
 
 static int invert = false;
 static int vibration = false;
+static int legacy = false;
 
 static GColor COLOR_FOREGROUND = GColorBlack;
 static GColor COLOR_BACKGROUND = GColorWhite;
@@ -126,18 +128,26 @@ static void drawRuler(GContext *ctx) {
           mark1.y = mark2.y = y;
           mark2.x = mark1.x + markWidth[j];
           graphics_draw_line(ctx, mark1, mark2);
-          mark1.y = mark2.y = y - 1;
-          graphics_draw_line(ctx, mark1, mark2);
-          mark1.y = mark2.y = y + 1;
-          graphics_draw_line(ctx, mark1, mark2);
+          if (!legacy) {
+            mark1.y = mark2.y = y - 1;
+            graphics_draw_line(ctx, mark1, mark2);
+            mark1.y = mark2.y = y + 1;
+            graphics_draw_line(ctx, mark1, mark2);
+          }
         }
         
         if (j == 0) {
-          rect_text.origin.y = y - 32;
           snprintf(text, sizeof(text), "%d", labels[i]);
           graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
-          graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49), rect_text, GTextOverflowModeWordWrap,
-                             GTextAlignmentLeft, NULL);
+          if (legacy) {
+            rect_text.origin.y = y - 19;
+            graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap,
+                               GTextAlignmentLeft, NULL);
+          } else {
+            rect_text.origin.y = y - 32;
+            graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49), rect_text, GTextOverflowModeWordWrap,
+                               GTextAlignmentLeft, NULL);
+          }
         }
       }
       y += LINE_INTERVAL;
@@ -199,7 +209,7 @@ static void applyConfig() {
 }
 
 static void logVariables(const char *msg) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n", msg, invert, vibration);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n", msg, invert, vibration, legacy);
 }
 
 static bool checkAndSaveInt(int *var, int val, int key) {
@@ -221,10 +231,12 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
 
   Tuple *invertTuple = dict_find(received, CONFIG_KEY_INVERT);
   Tuple *vibrationTuple = dict_find(received, CONFIG_KEY_VIBRATION);
+  Tuple *legacyTuple = dict_find(received, CONFIG_KEY_LEGACY);
 
-  if (invertTuple && vibrationTuple) {
+  if (invertTuple && vibrationTuple && legacyTuple) {
     somethingChanged |= checkAndSaveInt(&invert, invertTuple->value->int32, CONFIG_KEY_INVERT);
     somethingChanged |= checkAndSaveInt(&vibration, vibrationTuple->value->int32, CONFIG_KEY_VIBRATION);
+    somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
 
     logVariables("ReceiveHandler");
 
@@ -247,6 +259,12 @@ static void readConfig() {
     vibration = 0;
   }
 
+  if (persist_exists(CONFIG_KEY_LEGACY)) {
+    legacy = persist_read_int(CONFIG_KEY_LEGACY);
+  } else {
+    legacy = 0;
+  }
+
   logVariables("readConfig");
 }
 
@@ -259,7 +277,7 @@ static void app_message_init(void) {
 
 static void init() {
   time_t t;
-  int i, n;
+  int i;
 
   line2_p1 = line1_p1;
   line2_p2 = line1_p2;
