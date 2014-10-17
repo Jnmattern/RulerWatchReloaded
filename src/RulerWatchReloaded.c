@@ -10,6 +10,7 @@
 #define MARK_5  12
 #define MARK_15 22
 #define MARK_30 32
+#define NUM_LABELS 59
 
 enum {
   CONFIG_KEY_INVERT		= 1010,
@@ -31,8 +32,11 @@ static GPoint mark2 = { 0, 0 };
 
 static int markWidth[12] = { MARK_0, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5, MARK_30, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5 };
 
-static int labels[59] = { 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0,
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1 };
+static int labels_12h[NUM_LABELS] = { 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1 };
+static int labels[NUM_LABELS] = { 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1 };
+
 static struct tm now;
 
 static int invert = false;
@@ -115,7 +119,7 @@ static void drawRuler(GContext *ctx) {
   }
     
   graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
-  for (i=0; i<sizeof(labels); i++) {
+  for (i=0; i<NUM_LABELS; i++) {
     for (j=0; j<12; j++) {
       if ((y > -20) && (y < 188)) {
         if ((y >= 0) && (y < 168)) {
@@ -255,11 +259,18 @@ static void app_message_init(void) {
 
 static void init() {
   time_t t;
+  int i, n;
 
   line2_p1 = line1_p1;
   line2_p2 = line1_p2;
   line2_p1.y++;
   line2_p2.y++;
+
+  if (!clock_is_24h_style()) {
+    for (i=0; i<NUM_LABELS; i++) {
+      labels[i] = labels_12h[i];
+    }
+  }
 
   readConfig();
   setColors();

@@ -4,13 +4,13 @@
   "longName": "Ruler Reloaded",
   "companyName": "Jnm",
   "versionCode": 1,
-  "versionLabel": "3.2",
+  "versionLabel": "3.3",
   "watchapp": {
     "watchface": true
   },
   "capabilities": [ "configurable" ],
   "appKeys": {
-    "invert":		1010,
+    "invert":     1010,
     "vibration":	1011
   },
   "resources": {
