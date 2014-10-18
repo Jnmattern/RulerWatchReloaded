@@ -1,7 +1,7 @@
 #include <pebble.h>
 
 #define RULER_XOFFSET 24
-#define LINE_YPOS 83
+#define LINE_YPOS 84
 #define ANIM_DELAY 1000
 #define ANIM_DURATION 2000
 #define LINE_INTERVAL 5
