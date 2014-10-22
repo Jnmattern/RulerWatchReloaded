@@ -4,7 +4,7 @@
   "longName": "Ruler Reloaded",
   "companyName": "Jnm",
   "versionCode": 1,
-  "versionLabel": "3.4",
+  "versionLabel": "3.5",
   "watchapp": {
     "watchface": true
   },
@@ -12,7 +12,8 @@
   "appKeys": {
     "invert":     1010,
     "vibration":	1011,
-    "legacy":     1012
+    "legacy":     1012,
+    "battery":    1013
   },
   "resources": {
     "media": [
@@ -21,6 +22,21 @@
         "type": "png",
         "name": "IMAGE_MENU_ICON",
         "file": "images/ruler_icon.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_BATTERY_GAUGE",
+        "file": "images/battery_gauge.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_BATTERY_MARK_WHITE",
+        "file": "images/battery_mark_white.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_BATTERY_MARK_BLACK",
+        "file": "images/battery_mark_black.png"
       }
     ]
   }

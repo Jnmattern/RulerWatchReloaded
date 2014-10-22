@@ -1,7 +1,6 @@
 #include <pebble.h>
 
 #define RULER_XOFFSET 24
-#define LINE_YPOS 84
 #define ANIM_DELAY 1000
 #define ANIM_DURATION 2000
 #define LINE_INTERVAL 5
@@ -14,8 +13,9 @@
 
 enum {
   CONFIG_KEY_INVERT =     1010,
-  CONFIG_KEY_VIBRATION	 =  1011,
-  CONFIG_KEY_LEGACY =     1012
+  CONFIG_KEY_VIBRATION =  1011,
+  CONFIG_KEY_LEGACY =     1012,
+  CONFIG_KEY_BATTERY =    1013
 };
 
 static Window *window;
@@ -24,12 +24,13 @@ static Layer *layer;
 static int hour_size = 12 * LINE_INTERVAL; // 12 marks, one every 5 minutes
 static int hour_part_size;
 static GRect rect_text = { { RULER_XOFFSET, 0 }, { 60, 60 } };
-static GPoint line1_p1 = { 0, LINE_YPOS };
-static GPoint line1_p2 = { 143, LINE_YPOS };
+static GPoint line1_p1 = { 0, 84 };
+static GPoint line1_p2 = { 143, 84 };
 static GPoint line2_p1;
 static GPoint line2_p2;
 static GPoint mark1 = { 24, 0 };
 static GPoint mark2 = { 0, 0 };
+static int hour_line_ypos = 84;
 
 static int markWidth[12] = { MARK_0, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5, MARK_30, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5 };
 
@@ -43,9 +44,15 @@ static struct tm now;
 static int invert = false;
 static int vibration = false;
 static int legacy = false;
+static int battery = false;
 
 static GColor COLOR_FOREGROUND = GColorBlack;
 static GColor COLOR_BACKGROUND = GColorWhite;
+
+static uint8_t battery_level;
+static GBitmap *battery_gauge;
+static GBitmap *battery_mark_white;
+static GBitmap *battery_mark_black;
 
 static char text[3] = "  ";
 
@@ -71,9 +78,8 @@ static void drawDial(GContext *ctx) {
     graphics_context_set_fill_color(ctx, COLOR_FOREGROUND);
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
     graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
-    graphics_fill_rect(ctx, GRect(5, 5, 134, LINE_YPOS-6) , 4, GCornersAll);
-    graphics_fill_rect(ctx, GRect(5, LINE_YPOS+1, 134, 168-LINE_YPOS-6) , 4, GCornersAll);
-
+    graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
+    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
     graphics_context_set_compositing_mode(ctx, GCompOpAnd);
   }
 }
@@ -105,8 +111,8 @@ static void drawRuler(GContext *ctx) {
   // Offset for day mode
   day_offset = hour_part_size + now.tm_mday * hour_size;
   
-  yd = LINE_YPOS - day_offset;
-  yh = LINE_YPOS - hour_offset;
+  yd = hour_line_ypos - day_offset;
+  yh = hour_line_ypos - hour_offset;
   
   if (animRunning) {
     if (anim_phase == 1) {
@@ -155,9 +161,35 @@ static void drawRuler(GContext *ctx) {
   }
 }
 
+static void drawBattery(GContext *ctx) {
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+  graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
+  if (invert) {
+    graphics_fill_rect(ctx, GRect(5, 149, 134, 19), 4, GCornersAll);
+    graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
+    graphics_draw_round_rect(ctx, GRect(5, 149, 134, 14), 4);
+    graphics_context_set_compositing_mode(ctx, GCompOpSet);
+  } else {
+    graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
+  }
+  graphics_draw_bitmap_in_rect(ctx, battery_gauge, GRect(9, 151, battery_gauge->bounds.size.w, battery_gauge->bounds.size.h));
+
+//  if (!invert) {
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, battery_mark_white, GRect(7+((int)battery_level*12/10), 144, battery_mark_white->bounds.size.w, battery_mark_white->bounds.size.h));
+    graphics_context_set_compositing_mode(ctx, GCompOpAnd);
+    graphics_draw_bitmap_in_rect(ctx, battery_mark_black, GRect(7+((int)battery_level*12/10), 144, battery_mark_black->bounds.size.w, battery_mark_black->bounds.size.h));
+//  } else {
+//    graphics_draw_bitmap_in_rect(ctx, battery_mark, GRect(2+((int)battery_level*12/10), 149, battery_mark->bounds.size.w, battery_mark->bounds.size.h));
+//  }
+}
+
 static void layer_update(Layer *me, GContext* ctx) {
   drawDial(ctx);
   drawRuler(ctx);
+  if (battery) {
+    drawBattery(ctx);
+  }
 }
 
 static void rescheduleAnim(struct Animation *anim) {
@@ -193,6 +225,12 @@ static void handle_tick(struct tm *cur, TimeUnits units_changed) {
   layer_mark_dirty(layer);
 }
 
+static void handle_battery(BatteryChargeState charge) {
+  battery_level = charge.charge_percent;
+
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "handle_battery -> %d", (int)battery_level);
+}
+
 static void setColors() {
   if (invert) {
     COLOR_BACKGROUND = GColorBlack;
@@ -203,13 +241,28 @@ static void setColors() {
   }
 }
 
+static void setHourLinePoints() {
+  if (battery) {
+    hour_line_ypos = 73;
+  } else {
+    hour_line_ypos = 84;
+  }
+
+  line1_p1.y = line1_p2.y = hour_line_ypos;
+  line2_p1 = line1_p1;
+  line2_p2 = line1_p2;
+  line2_p1.y++;
+  line2_p2.y++;
+}
+
 static void applyConfig() {
   setColors();
+  setHourLinePoints();
   layer_mark_dirty(layer);
 }
 
 static void logVariables(const char *msg) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n", msg, invert, vibration, legacy);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n", msg, invert, vibration, legacy, battery);
 }
 
 static bool checkAndSaveInt(int *var, int val, int key) {
@@ -232,11 +285,13 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
   Tuple *invertTuple = dict_find(received, CONFIG_KEY_INVERT);
   Tuple *vibrationTuple = dict_find(received, CONFIG_KEY_VIBRATION);
   Tuple *legacyTuple = dict_find(received, CONFIG_KEY_LEGACY);
+  Tuple *batteryTuple = dict_find(received, CONFIG_KEY_BATTERY);
 
-  if (invertTuple && vibrationTuple && legacyTuple) {
+  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple) {
     somethingChanged |= checkAndSaveInt(&invert, invertTuple->value->int32, CONFIG_KEY_INVERT);
     somethingChanged |= checkAndSaveInt(&vibration, vibrationTuple->value->int32, CONFIG_KEY_VIBRATION);
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
+    somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
 
     logVariables("ReceiveHandler");
 
@@ -265,24 +320,30 @@ static void readConfig() {
     legacy = 0;
   }
 
+  if (persist_exists(CONFIG_KEY_BATTERY)) {
+    battery = persist_read_int(CONFIG_KEY_BATTERY);
+  } else {
+    battery = 0;
+  }
+
   logVariables("readConfig");
 }
 
 static void app_message_init(void) {
   app_message_register_inbox_received(in_received_handler);
   app_message_register_inbox_dropped(in_dropped_handler);
-  app_message_open(64, 64);
+  app_message_open(128, 128);
 }
 
+static void initBatteryLevel() {
+  BatteryChargeState battery_state = battery_state_service_peek();
+
+  battery_level = battery_state.charge_percent;
+}
 
 static void init() {
   time_t t;
   int i;
-
-  line2_p1 = line1_p1;
-  line2_p2 = line1_p2;
-  line2_p1.y++;
-  line2_p2.y++;
 
   if (!clock_is_24h_style()) {
     for (i=0; i<NUM_LABELS; i++) {
@@ -292,8 +353,14 @@ static void init() {
 
   readConfig();
   setColors();
+  setHourLinePoints();
+  initBatteryLevel();
 
   app_message_init();
+
+  battery_gauge = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_GAUGE);
+  battery_mark_white = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_MARK_WHITE);
+  battery_mark_black = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_MARK_BLACK);
 
   window = window_create();
   window_set_background_color(window, COLOR_BACKGROUND);
@@ -322,6 +389,7 @@ static void init() {
 
   tick_timer_service_subscribe(MINUTE_UNIT, handle_tick);
   accel_tap_service_subscribe(handle_tap);
+  battery_state_service_subscribe(handle_battery);
 }
 
 
@@ -332,8 +400,14 @@ static void deinit() {
   animation_destroy(anim);
   accel_tap_service_unsubscribe();
   tick_timer_service_unsubscribe();
+  battery_state_service_unsubscribe();
+
   layer_destroy(layer);
   window_destroy(window);
+
+  gbitmap_destroy(battery_mark_white);
+  gbitmap_destroy(battery_mark_black);
+  gbitmap_destroy(battery_gauge);
 }
 
 int main(void) {
