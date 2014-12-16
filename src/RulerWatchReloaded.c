@@ -12,10 +12,11 @@
 #define NUM_LABELS 59
 
 enum {
-  CONFIG_KEY_INVERT =     1010,
-  CONFIG_KEY_VIBRATION =  1011,
-  CONFIG_KEY_LEGACY =     1012,
-  CONFIG_KEY_BATTERY =    1013
+  CONFIG_KEY_INVERT =       1010,
+  CONFIG_KEY_VIBRATION =    1011,
+  CONFIG_KEY_LEGACY =       1012,
+  CONFIG_KEY_BATTERY =      1013,
+  CONFIG_KEY_DATEONSHAKE =  1014
 };
 
 static Window *window;
@@ -45,6 +46,7 @@ static int invert = false;
 static int vibration = false;
 static int legacy = false;
 static int battery = false;
+static int dateonshake = true;
 
 static GColor COLOR_FOREGROUND = GColorBlack;
 static GColor COLOR_BACKGROUND = GColorWhite;
@@ -208,7 +210,7 @@ static void handleAnim(struct Animation *anim, const uint32_t normTime) {
 }
 
 static void handle_tap(AccelAxisType axis, int32_t direction) {
-  if (!animation_is_scheduled(anim)) {
+  if (dateonshake && !animation_is_scheduled(anim)) {
     animRunning = true;
     anim_phase = 1;
     animation_schedule(anim);
@@ -262,7 +264,7 @@ static void applyConfig() {
 }
 
 static void logVariables(const char *msg) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n", msg, invert, vibration, legacy, battery);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n\tdateonshake=%d\n", msg, invert, vibration, legacy, battery, dateonshake);
 }
 
 static bool checkAndSaveInt(int *var, int val, int key) {
@@ -286,12 +288,14 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
   Tuple *vibrationTuple = dict_find(received, CONFIG_KEY_VIBRATION);
   Tuple *legacyTuple = dict_find(received, CONFIG_KEY_LEGACY);
   Tuple *batteryTuple = dict_find(received, CONFIG_KEY_BATTERY);
+  Tuple *dateonshakeTuple = dict_find(received, CONFIG_KEY_DATEONSHAKE);
 
-  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple) {
+  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple) {
     somethingChanged |= checkAndSaveInt(&invert, invertTuple->value->int32, CONFIG_KEY_INVERT);
     somethingChanged |= checkAndSaveInt(&vibration, vibrationTuple->value->int32, CONFIG_KEY_VIBRATION);
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
     somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
+    somethingChanged |= checkAndSaveInt(&dateonshake, dateonshakeTuple->value->int32, CONFIG_KEY_DATEONSHAKE);
 
     logVariables("ReceiveHandler");
 
@@ -324,6 +328,12 @@ static void readConfig() {
     battery = persist_read_int(CONFIG_KEY_BATTERY);
   } else {
     battery = 0;
+  }
+
+  if (persist_exists(CONFIG_KEY_DATEONSHAKE)) {
+    dateonshake = persist_read_int(CONFIG_KEY_DATEONSHAKE);
+  } else {
+    dateonshake = 1;
   }
 
   logVariables("readConfig");

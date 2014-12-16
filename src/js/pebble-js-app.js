@@ -2,12 +2,14 @@ var invert = 0;
 var vibration = 0;
 var legacy = 0;
 var battery = 0;
+var dateonshake = 0;
 
 function logVariables() {
 	console.log("	invert: " + invert);
   console.log("	vibration: " + vibration);
   console.log("	legacy: " + vibration);
   console.log("	battery: " + battery);
+  console.log("	dateonshake: " + dateonshake);
 }
 
 Pebble.addEventListener("ready", function() {
@@ -32,9 +34,14 @@ Pebble.addEventListener("ready", function() {
 		battery = 0;
 	}
 
+	dateonshake = localStorage.getItem("dateonshake");
+	if (!dateonshake) {
+		dateonshake = 1;
+	}
+
 	logVariables();
 						
-	Pebble.sendAppMessage(JSON.parse('{"invert":'+invert+',"vibration":'+vibration+',"legacy":'+legacy+',"battery":'+battery+'}'));
+	Pebble.sendAppMessage(JSON.parse('{"invert":'+invert+',"vibration":'+vibration+',"legacy":'+legacy+',"battery":'+battery+',"dateonshake":'+dateonshake+'}'));
 });
 
 Pebble.addEventListener("showConfiguration", function(e) {
@@ -42,7 +49,7 @@ Pebble.addEventListener("showConfiguration", function(e) {
 
 	logVariables();
 						
-	Pebble.openURL("http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.5.php?invert=" + invert + "&vibration=" + vibration + "&legacy=" + legacy + "&battery=" + battery );
+	Pebble.openURL("http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.6.php?invert=" + invert + "&vibration=" + vibration + "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake);
 });
 
 Pebble.addEventListener("webviewclosed", function(e) {
@@ -64,4 +71,7 @@ Pebble.addEventListener("webviewclosed", function(e) {
 
   battery = configuration["battery"];
 	localStorage.setItem("battery", battery);
+
+  dateonshake = configuration["dateonshake"];
+	localStorage.setItem("dateonshake", dateonshake);
 });

@@ -4,16 +4,17 @@
   "longName": "Ruler Reloaded",
   "companyName": "Jnm",
   "versionCode": 1,
-  "versionLabel": "3.5",
+  "versionLabel": "3.6",
   "watchapp": {
     "watchface": true
   },
   "capabilities": [ "configurable" ],
   "appKeys": {
-    "invert":     1010,
-    "vibration":	1011,
-    "legacy":     1012,
-    "battery":    1013
+    "invert":       1010,
+    "vibration":    1011,
+    "legacy":       1012,
+    "battery":      1013,
+    "dateonshake":  1014
   },
   "resources": {
     "media": [
