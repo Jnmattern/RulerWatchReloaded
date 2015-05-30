@@ -4,17 +4,19 @@
   "longName": "Ruler Reloaded",
   "companyName": "Jnm",
   "versionCode": 1,
-  "versionLabel": "3.6",
+  "versionLabel": "3.7",
   "watchapp": {
     "watchface": true
   },
-  "capabilities": [ "configurable" ],
+  "capabilities": [
+    "configurable"
+  ],
   "appKeys": {
-    "invert":       1010,
-    "vibration":    1011,
-    "legacy":       1012,
-    "battery":      1013,
-    "dateonshake":  1014
+    "invert": 1010,
+    "vibration": 1011,
+    "legacy": 1012,
+    "battery": 1013,
+    "dateonshake": 1014
   },
   "resources": {
     "media": [
@@ -28,17 +30,12 @@
         "type": "png",
         "name": "IMAGE_BATTERY_GAUGE",
         "file": "images/battery_gauge.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_BATTERY_MARK_WHITE",
-        "file": "images/battery_mark_white.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_BATTERY_MARK_BLACK",
-        "file": "images/battery_mark_black.png"
       }
     ]
-  }
+  },
+  "targetPlatforms": [
+    "aplite",
+    "basalt"
+  ],
+  "sdkVersion": "3"
 }

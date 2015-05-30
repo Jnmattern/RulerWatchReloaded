@@ -48,17 +48,28 @@ static int legacy = false;
 static int battery = false;
 static int dateonshake = true;
 
-static GColor COLOR_FOREGROUND = GColorBlack;
-static GColor COLOR_BACKGROUND = GColorWhite;
+static GColor fgColor;
+static GColor bgColor;
 
 static uint8_t battery_level;
 static GBitmap *battery_gauge;
-static GBitmap *battery_mark_white;
-static GBitmap *battery_mark_black;
+static GRect battery_gauge_bounds;
+
+static const GPathInfo battery_mark_upper_path_info = {
+  .num_points = 5,
+  .points = (GPoint []) {{0, 0}, {8, 0}, {8, 4}, {4, 8}, {0, 4}}
+};
+static const GPathInfo battery_mark_lower_path_info = {
+  .num_points = 5,
+  .points = (GPoint []) {{4, 14}, {8, 18}, {8, 22}, {0, 22}, {0, 18}}
+};
+static GPath *battery_mark_upper_path = NULL;
+static GPath *battery_mark_lower_path = NULL;
+
 
 static char text[3] = "  ";
 
-static uint32_t anim_time = 0;
+static AnimationProgress anim_time = 0;
 static int anim_phase = 0;
 
 static bool animRunning = false;
@@ -68,18 +79,18 @@ static Animation *anim;
 
 static void drawDial(GContext *ctx) {
   if (invert) {
-    graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
+    graphics_context_set_fill_color(ctx, bgColor);
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
 
-    graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
+    graphics_context_set_stroke_color(ctx, fgColor);
     graphics_draw_line(ctx, line1_p1, line1_p2);
     graphics_draw_line(ctx, line2_p1, line2_p2);
 
     graphics_context_set_compositing_mode(ctx, GCompOpSet);
   } else {
-    graphics_context_set_fill_color(ctx, COLOR_FOREGROUND);
+    graphics_context_set_fill_color(ctx, fgColor);
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
-    graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
+    graphics_context_set_fill_color(ctx, bgColor);
     graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
     graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
     graphics_context_set_compositing_mode(ctx, GCompOpAnd);
@@ -127,8 +138,8 @@ static void drawRuler(GContext *ctx) {
   } else {
     y = yh;
   }
-    
-  graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
+
+  graphics_context_set_stroke_color(ctx, fgColor);
   for (i=0; i<NUM_LABELS; i++) {
     for (j=0; j<12; j++) {
       if ((y > -20) && (y < 188)) {
@@ -146,7 +157,7 @@ static void drawRuler(GContext *ctx) {
         
         if (j == 0) {
           snprintf(text, sizeof(text), "%d", labels[i]);
-          graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+          graphics_context_set_text_color(ctx, fgColor);
           if (legacy) {
             rect_text.origin.y = y - 19;
             graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap,
@@ -164,26 +175,30 @@ static void drawRuler(GContext *ctx) {
 }
 
 static void drawBattery(GContext *ctx) {
+  GPoint battery_mark_pos = GPoint(7+((int)battery_level*12/10), 144);
+
   graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-  graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
+  graphics_context_set_fill_color(ctx, bgColor);
+
   if (invert) {
     graphics_fill_rect(ctx, GRect(5, 149, 134, 19), 4, GCornersAll);
-    graphics_context_set_stroke_color(ctx, COLOR_FOREGROUND);
+    graphics_context_set_stroke_color(ctx, fgColor);
     graphics_draw_round_rect(ctx, GRect(5, 149, 134, 14), 4);
     graphics_context_set_compositing_mode(ctx, GCompOpSet);
   } else {
     graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
   }
-  graphics_draw_bitmap_in_rect(ctx, battery_gauge, GRect(9, 151, battery_gauge->bounds.size.w, battery_gauge->bounds.size.h));
 
-//  if (!invert) {
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, battery_mark_white, GRect(7+((int)battery_level*12/10), 144, battery_mark_white->bounds.size.w, battery_mark_white->bounds.size.h));
-    graphics_context_set_compositing_mode(ctx, GCompOpAnd);
-    graphics_draw_bitmap_in_rect(ctx, battery_mark_black, GRect(7+((int)battery_level*12/10), 144, battery_mark_black->bounds.size.w, battery_mark_black->bounds.size.h));
-//  } else {
-//    graphics_draw_bitmap_in_rect(ctx, battery_mark, GRect(2+((int)battery_level*12/10), 149, battery_mark->bounds.size.w, battery_mark->bounds.size.h));
-//  }
+  graphics_draw_bitmap_in_rect(ctx, battery_gauge, GRect(9, 151, battery_gauge_bounds.size.w, battery_gauge_bounds.size.h));
+
+  graphics_context_set_stroke_color(ctx, fgColor);
+  graphics_context_set_fill_color(ctx, bgColor);
+  gpath_move_to(battery_mark_upper_path, battery_mark_pos);
+  gpath_move_to(battery_mark_lower_path, battery_mark_pos);
+  gpath_draw_filled(ctx, battery_mark_upper_path);
+  gpath_draw_filled(ctx, battery_mark_lower_path);
+  gpath_draw_outline(ctx, battery_mark_upper_path);
+  gpath_draw_outline(ctx, battery_mark_lower_path);
 }
 
 static void layer_update(Layer *me, GContext* ctx) {
@@ -194,25 +209,65 @@ static void layer_update(Layer *me, GContext* ctx) {
   }
 }
 
-static void rescheduleAnim(struct Animation *anim) {
+static void createAnim();
+static void destroyAnim();
+
+//static void rescheduleAnim(struct Animation *anim) {
+static void rescheduleAnim(Animation *anim, bool finished, void *ctx) {
+  destroyAnim();
+
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "-> rescheduleAnim: phase=%d - animRunning = %d", anim_phase, animRunning);
+
   anim_phase++;
   if (anim_phase == 2) {
+    anim_time = ANIMATION_NORMALIZED_MIN;
+    createAnim();
     animation_schedule(anim);
   } else {
     anim_phase = 0;
     animRunning = false;
   }
+
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "<- rescheduleAnim: phase=%d - animRunning = %d", anim_phase, animRunning);
 }
 
-static void handleAnim(struct Animation *anim, const uint32_t normTime) {
+static void handleAnim(struct Animation *anim, const AnimationProgress normTime) {
   anim_time = normTime;
   layer_mark_dirty(layer);
 }
 
+static void destroyAnim() {
+#ifdef PBL_PLATFORM_APLITE
+  if (anim != NULL) {
+    animation_destroy(anim);
+  }
+#endif
+  anim = NULL;
+}
+
+static void createAnim() {
+  animImpl.setup = NULL;
+  animImpl.update = (AnimationUpdateImplementation)handleAnim;
+  animImpl.teardown = NULL;
+
+  anim = animation_create();
+  animation_set_delay(anim, ANIM_DELAY);
+  animation_set_duration(anim, ANIM_DURATION);
+  animation_set_handlers	(	anim, (AnimationHandlers){
+    .started = NULL,
+    .stopped = rescheduleAnim
+    },
+    NULL);
+  animation_set_implementation(anim, &animImpl);
+}
+
+
 static void handle_tap(AccelAxisType axis, int32_t direction) {
-  if (dateonshake && !animation_is_scheduled(anim)) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "handle_tap: animRunning = %d", animRunning);
+  if (dateonshake && (anim_phase == 0)) {
     animRunning = true;
     anim_phase = 1;
+    createAnim();
     animation_schedule(anim);
   }
 }
@@ -229,17 +284,17 @@ static void handle_tick(struct tm *cur, TimeUnits units_changed) {
 
 static void handle_battery(BatteryChargeState charge) {
   battery_level = charge.charge_percent;
-
+  // Don't force display update, will be done automatically on next minute change
   APP_LOG(APP_LOG_LEVEL_DEBUG, "handle_battery -> %d", (int)battery_level);
 }
 
 static void setColors() {
   if (invert) {
-    COLOR_BACKGROUND = GColorBlack;
-    COLOR_FOREGROUND = GColorWhite;
+    bgColor = GColorBlack;
+    fgColor = GColorWhite;
   } else {
-    COLOR_BACKGROUND = GColorWhite;
-    COLOR_FOREGROUND = GColorBlack;
+    bgColor = GColorWhite;
+    fgColor = GColorBlack;
   }
 }
 
@@ -296,6 +351,12 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
     somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
     somethingChanged |= checkAndSaveInt(&dateonshake, dateonshakeTuple->value->int32, CONFIG_KEY_DATEONSHAKE);
+    //////////////////////
+    battery = 1;
+    //invert = 1;
+    somethingChanged = true;
+    //////////////////////
+    
 
     logVariables("ReceiveHandler");
 
@@ -351,6 +412,16 @@ static void initBatteryLevel() {
   battery_level = battery_state.charge_percent;
 }
 
+static void initBatteryMarkPaths() {
+  battery_mark_upper_path = gpath_create(&battery_mark_upper_path_info);
+  battery_mark_lower_path = gpath_create(&battery_mark_lower_path_info);
+}
+
+static void destroyBatteryMarkPaths() {
+  gpath_destroy(battery_mark_upper_path);
+  gpath_destroy(battery_mark_lower_path);
+}
+
 static void init() {
   time_t t;
   int i;
@@ -361,6 +432,9 @@ static void init() {
     }
   }
 
+  fgColor = GColorWhite;
+  bgColor = GColorBlack;
+
   readConfig();
   setColors();
   setHourLinePoints();
@@ -369,11 +443,12 @@ static void init() {
   app_message_init();
 
   battery_gauge = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_GAUGE);
-  battery_mark_white = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_MARK_WHITE);
-  battery_mark_black = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_MARK_BLACK);
+  battery_gauge_bounds = gbitmap_get_bounds(battery_gauge);
+
+  initBatteryMarkPaths();
 
   window = window_create();
-  window_set_background_color(window, COLOR_BACKGROUND);
+  window_set_background_color(window, bgColor);
   window_stack_push(window, true);
 
   rootLayer = window_get_root_layer(window);
@@ -387,15 +462,6 @@ static void init() {
 
   t = time(NULL);
   now = *(localtime(&t));
-
-  animImpl.setup = NULL;
-  animImpl.update = handleAnim;
-  animImpl.teardown = rescheduleAnim;
-
-  anim = animation_create();
-  animation_set_delay(anim, ANIM_DELAY);
-  animation_set_duration(anim, ANIM_DURATION);
-  animation_set_implementation(anim, &animImpl);
 
   tick_timer_service_subscribe(MINUTE_UNIT, handle_tick);
   accel_tap_service_subscribe(handle_tap);
@@ -415,8 +481,8 @@ static void deinit() {
   layer_destroy(layer);
   window_destroy(window);
 
-  gbitmap_destroy(battery_mark_white);
-  gbitmap_destroy(battery_mark_black);
+  destroyBatteryMarkPaths();
+
   gbitmap_destroy(battery_gauge);
 }
 
