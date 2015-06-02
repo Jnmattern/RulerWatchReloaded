@@ -28,7 +28,7 @@
       },
       {
         "characterRegex": "[0-9EF]",
-        "file": "fonts/04B_03/04B_03__.TTF",
+        "file": "fonts/04b_03/04B_03__.TTF",
         "name": "FONT_BATTERY_GAUGE_SUBSET_8",
         "type": "font"
       }
