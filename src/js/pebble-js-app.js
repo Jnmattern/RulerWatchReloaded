@@ -48,8 +48,12 @@ Pebble.addEventListener("showConfiguration", function(e) {
 	console.log("showConfiguration Event");
 
 	logVariables();
-						
-	Pebble.openURL("http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.6.php?invert=" + invert + "&vibration=" + vibration + "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake);
+
+  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.7.php?invert=" + invert + "&vibration=" + vibration + "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake;
+
+  console.log("Opening URL: "+url);
+
+	Pebble.openURL(url);
 });
 
 Pebble.addEventListener("webviewclosed", function(e) {
@@ -57,8 +61,8 @@ Pebble.addEventListener("webviewclosed", function(e) {
 	console.log(e.type);
 	console.log(e.response);
 
-	var configuration = JSON.parse(e.response);
-	Pebble.sendAppMessage(configuration);
+	var configuration = JSON.parse(decodeURIComponent(e.response));
+  Pebble.sendAppMessage(configuration);
 	
 	invert = configuration["invert"];
 	localStorage.setItem("invert", invert);

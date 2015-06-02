@@ -52,8 +52,7 @@ static GColor fgColor;
 static GColor bgColor;
 
 static uint8_t battery_level;
-static GBitmap *battery_gauge;
-static GRect battery_gauge_bounds;
+static GFont battery_gauge_font;
 
 static const GPathInfo battery_mark_upper_path_info = {
   .num_points = 5,
@@ -78,27 +77,15 @@ static AnimationImplementation animImpl;
 static Animation *anim;
 
 static void drawDial(GContext *ctx) {
-  if (invert) {
-    graphics_context_set_fill_color(ctx, bgColor);
-    graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
-
-    graphics_context_set_stroke_color(ctx, fgColor);
-    graphics_draw_line(ctx, line1_p1, line1_p2);
-    graphics_draw_line(ctx, line2_p1, line2_p2);
-
-    graphics_context_set_compositing_mode(ctx, GCompOpSet);
-  } else {
-    graphics_context_set_fill_color(ctx, fgColor);
-    graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
-    graphics_context_set_fill_color(ctx, bgColor);
-    graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
-    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
-    graphics_context_set_compositing_mode(ctx, GCompOpAnd);
-  }
+  graphics_context_set_fill_color(ctx, fgColor);
+  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
+  graphics_context_set_fill_color(ctx, bgColor);
+  graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
+  graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
 }
 
 /*
- * 
+ *
  * Ruler format :
  * 
  *    <------------------HOURS----------------><---------------------DAYS---------------------->
@@ -175,22 +162,24 @@ static void drawRuler(GContext *ctx) {
 }
 
 static void drawBattery(GContext *ctx) {
+  int i, x;
+  static char t[11][3] = { "E", "10", "20", "30", "40", "50", "60", "70", "80", "90", "F" };
+
   GPoint battery_mark_pos = GPoint(7+((int)battery_level*12/10), 144);
 
-  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+  // Battery Gauge Background
   graphics_context_set_fill_color(ctx, bgColor);
+  graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
 
-  if (invert) {
-    graphics_fill_rect(ctx, GRect(5, 149, 134, 19), 4, GCornersAll);
-    graphics_context_set_stroke_color(ctx, fgColor);
-    graphics_draw_round_rect(ctx, GRect(5, 149, 134, 14), 4);
-    graphics_context_set_compositing_mode(ctx, GCompOpSet);
-  } else {
-    graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
+  // Battery line and graduations
+  graphics_context_set_stroke_color(ctx, fgColor);
+  graphics_draw_line(ctx, GPoint(11, 161), GPoint(131, 161));
+  for (i=0, x=11; i<=10; i++, x+=12) {
+    graphics_draw_line(ctx, GPoint(x, 159), GPoint(x, 161));
+    graphics_draw_text	(ctx, t[i], battery_gauge_font, GRect(x-9, 150, 20, 11), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   }
 
-  graphics_draw_bitmap_in_rect(ctx, battery_gauge, GRect(9, 151, battery_gauge_bounds.size.w, battery_gauge_bounds.size.h));
-
+  // Battery mark
   graphics_context_set_stroke_color(ctx, fgColor);
   graphics_context_set_fill_color(ctx, bgColor);
   gpath_move_to(battery_mark_upper_path, battery_mark_pos);
@@ -212,7 +201,6 @@ static void layer_update(Layer *me, GContext* ctx) {
 static void createAnim();
 static void destroyAnim();
 
-//static void rescheduleAnim(struct Animation *anim) {
 static void rescheduleAnim(Animation *anim, bool finished, void *ctx) {
   destroyAnim();
 
@@ -351,12 +339,6 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
     somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
     somethingChanged |= checkAndSaveInt(&dateonshake, dateonshakeTuple->value->int32, CONFIG_KEY_DATEONSHAKE);
-    //////////////////////
-    battery = 1;
-    //invert = 1;
-    somethingChanged = true;
-    //////////////////////
-    
 
     logVariables("ReceiveHandler");
 
@@ -442,8 +424,7 @@ static void init() {
 
   app_message_init();
 
-  battery_gauge = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BATTERY_GAUGE);
-  battery_gauge_bounds = gbitmap_get_bounds(battery_gauge);
+  battery_gauge_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_BATTERY_GAUGE_SUBSET_8));
 
   initBatteryMarkPaths();
 
@@ -483,7 +464,7 @@ static void deinit() {
 
   destroyBatteryMarkPaths();
 
-  gbitmap_destroy(battery_gauge);
+  fonts_unload_custom_font(battery_gauge_font);
 }
 
 int main(void) {

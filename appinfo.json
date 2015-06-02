@@ -27,9 +27,10 @@
         "file": "images/ruler_icon.png"
       },
       {
-        "type": "png",
-        "name": "IMAGE_BATTERY_GAUGE",
-        "file": "images/battery_gauge.png"
+        "characterRegex": "[0-9EF]",
+        "file": "fonts/04B_03/04B_03__.TTF",
+        "name": "FONT_BATTERY_GAUGE_SUBSET_8",
+        "type": "font"
       }
     ]
   },
