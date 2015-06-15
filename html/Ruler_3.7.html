@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+        <head>
+                <title>Ruler</title>
+                <meta charset='utf-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1'>
+                  <link rel='stylesheet' href='../jquery.mobile-1.3.2.min.css' />
+                  <script src='../jquery-1.9.1.min.js'></script>
+                  <script src='../jquery.mobile-1.3.2.min-custom.js'></script>
+
+                  <link rel="stylesheet" type="text/css" href="../spectrum.css">
+                    <script type='text/javascript' src="../spectrum.js"></script>
+                    <script type='text/javascript' src="../argsparse.js"></script>
+
+                    <style>
+                      .ui-header .ui-title { margin-left: 1em; margin-right: 1em; text-overflow: clip; }
+                      </style>
+                    </head>
+        <body>
+<div data-role="page" id="page1">
+    <div id="head" data-theme="a" data-role="header" data-position="fixed" data-tap-toggle="false">
+        <div class="ui-grid-a">
+            <div class="ui-block-a">
+                <input id="cancel" type="submit" data-theme="c" data-icon="delete" data-iconpos="left"
+                value="Cancel" data-mini="true">
+            </div>
+            <div class="ui-block-b">
+                <input id="save" type="submit" data-theme="b" data-icon="check" data-iconpos="right"
+                value="Save" data-mini="true">
+            </div>
+        </div>
+    </div>
+
+    <div data-role="content">
+
+<fieldset class="ui-grid-a">
+<div class="ui-block-a">
+	<div data-role="fieldcontain">
+    <label for="invert">
+      Invert Colors
+    </label>
+    <select name="invert" id="invert" data-theme="" data-role="slider" data-mini="true">
+<script>
+  var s;
+  if (typeof (args.invert) == "undefined") {
+    args.invert = 0;
+  }
+
+  s = [ "", "" ];
+  s[args.invert] = " selected";
+
+  document.writeln('<option value="0"' + s[0] + '>Off</option><option value="1"' + s[1] + '>On</option>');
+</script>
+    </select>
+  </div>
+</div>
+<div class="ui-block-b">
+  <div data-role="fieldcontain">
+    <label for="vibration">
+        Vibrate on Hour
+    </label>
+    <select name="vibration" id="vibration" data-theme="" data-role="slider" data-mini="true">
+<script>
+  if (typeof (args.vibration) == "undefined") {
+    args.vibration = 0;
+  }
+
+  s = [ "", "" ];
+  s[args.vibration] = " selected";
+
+  document.writeln('<option value="0"' + s[0] + '>Off</option><option value="1"' + s[1] + '>On</option>');
+</script>
+    </select>
+  </div>
+</div>
+<div class="ui-block-a">
+  <div data-role="fieldcontain">
+    <label for="legacy">
+        Legacy Style
+    </label>
+    <select name="legacy" id="legacy" data-theme="" data-role="slider" data-mini="true">
+<script>
+  if (typeof (args.legacy) == "undefined") {
+    args.legacy = 0;
+  }
+
+  s = [ "", "" ];
+  s[args.legacy] = " selected";
+
+  document.writeln('<option value="0"' + s[0] + '>Off</option><option value="1"' + s[1] + '>On</option>');
+</script>
+    </select>
+  </div>
+</div>
+<div class="ui-block-b">
+  <div data-role="fieldcontain">
+    <label for="battery">
+        Show Battery Level
+    </label>
+    <select name="battery" id="battery" data-theme="" data-role="slider" data-mini="true">
+<script>
+  if (typeof (args.battery) == "undefined") {
+    args.battery = 0;
+  }
+
+  s = [ "", "" ];
+  s[args.battery] = " selected";
+
+  document.writeln('<option value="0"' + s[0] + '>Off</option><option value="1"' + s[1] + '>On</option>');
+</script>
+    </select>
+  </div>
+</div>
+<div class="ui-block-a">
+  <div data-role="fieldcontain">
+    <label for="dateonshake">
+      Show Date on Shake
+    </label>
+    <select name="dateonshake" id="dateonshake" data-theme="" data-role="slider" data-mini="true">
+<script>
+  if (typeof (args.dateonshake) == "undefined") {
+    args.dateonshake = 0;
+  }
+
+  s = [ "", "" ];
+  s[args.dateonshake] = " selected";
+
+  document.writeln('<option value="0"' + s[0] + '>Off</option><option value="1"' + s[1] + '>On</option>');
+</script>
+    </select>
+  </div>
+</div>
+
+</fieldset>
+    </div>
+	</div>
+</div>
+
+<script>
+  if (typeof (args.return_to) == "undefined") {
+    args.return_to = 'pebblejs://close#';
+  }
+
+  var closeURL = args.return_to;
+
+  function saveOptions() {
+    var options = {
+			'invert': parseInt($("#invert").val(), 10),
+			'vibration': parseInt($("#vibration").val(), 10),
+      'legacy': parseInt($("#legacy").val(), 10),
+      'battery': parseInt($("#battery").val(), 10),
+      'dateonshake': parseInt($("#dateonshake").val(), 10)
+    }
+    return options;
+  }
+
+  $().ready(function() {
+    $("#cancel").click(function() {
+      console.log("Cancel");
+      document.location = closeURL;
+    });
+
+    $("#save").click(function() {
+      console.log("Submit");
+      
+      var location = closeURL + encodeURIComponent(JSON.stringify(saveOptions()));
+      console.log("Close: " + location);
+      console.log(location);
+      document.location = location;
+    });
+
+  });
+</script>
+</body>
+</html>

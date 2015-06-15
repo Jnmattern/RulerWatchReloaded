@@ -49,7 +49,7 @@ Pebble.addEventListener("showConfiguration", function(e) {
 
 	logVariables();
 
-  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.7.php?invert=" + invert + "&vibration=" + vibration + "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake;
+  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.7.html?invert=" + invert + "&vibration=" + vibration + "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake;
 
   console.log("Opening URL: "+url);
 
