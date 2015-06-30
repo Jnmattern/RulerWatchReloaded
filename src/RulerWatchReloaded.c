@@ -16,7 +16,8 @@ enum {
   CONFIG_KEY_VIBRATION =    1011,
   CONFIG_KEY_LEGACY =       1012,
   CONFIG_KEY_BATTERY =      1013,
-  CONFIG_KEY_DATEONSHAKE =  1014
+  CONFIG_KEY_DATEONSHAKE =  1014,
+  CONFIG_KEY_DIAL =         1015
 };
 
 static Window *window;
@@ -47,6 +48,7 @@ static int vibration = false;
 static int legacy = false;
 static int battery = false;
 static int dateonshake = true;
+static int dial = true;
 
 static GColor fgColor;
 static GColor bgColor;
@@ -77,11 +79,18 @@ static AnimationImplementation animImpl;
 static Animation *anim;
 
 static void drawDial(GContext *ctx) {
-  graphics_context_set_fill_color(ctx, fgColor);
-  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornersAll);
-  graphics_context_set_fill_color(ctx, bgColor);
-  graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
-  graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
+  if (dial) {
+    graphics_context_set_fill_color(ctx, fgColor);
+    graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+    graphics_context_set_fill_color(ctx, bgColor);
+    graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
+    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
+  } else {
+    graphics_context_set_fill_color(ctx, bgColor);
+    graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+    graphics_context_set_fill_color(ctx, fgColor);
+    graphics_fill_rect(ctx, GRect(0, hour_line_ypos-1, 144, 2), 0, GCornerNone);
+  }    
 }
 
 /*
@@ -169,7 +178,13 @@ static void drawBattery(GContext *ctx) {
 
   // Battery Gauge Background
   graphics_context_set_fill_color(ctx, bgColor);
-  graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
+  if (dial) {
+    graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
+  } else {
+    graphics_fill_rect(ctx, GRect(0, 149, 144, 20), 0, GCornerNone);
+    graphics_context_set_fill_color(ctx, fgColor);
+    graphics_draw_round_rect(ctx, GRect(5, 149, 134, 14), 4);
+  }
 
   // Battery line and graduations
   graphics_context_set_stroke_color(ctx, fgColor);
@@ -204,7 +219,7 @@ static void destroyAnim();
 static void rescheduleAnim(Animation *anim, bool finished, void *ctx) {
   destroyAnim();
 
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "-> rescheduleAnim: phase=%d - animRunning = %d", anim_phase, animRunning);
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "-> rescheduleAnim: phase=%d - animRunning = %d", anim_phase, animRunning);
 
   anim_phase++;
   if (anim_phase == 2) {
@@ -216,7 +231,7 @@ static void rescheduleAnim(Animation *anim, bool finished, void *ctx) {
     animRunning = false;
   }
 
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "<- rescheduleAnim: phase=%d - animRunning = %d", anim_phase, animRunning);
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "<- rescheduleAnim: phase=%d - animRunning = %d", anim_phase, animRunning);
 }
 
 static void handleAnim(struct Animation *anim, const AnimationProgress normTime) {
@@ -307,7 +322,8 @@ static void applyConfig() {
 }
 
 static void logVariables(const char *msg) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n\tdateonshake=%d\n", msg, invert, vibration, legacy, battery, dateonshake);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n\tdateonshake=%d\n\tdial=%d\n",
+    msg, invert, vibration, legacy, battery, dateonshake, dial);
 }
 
 static bool checkAndSaveInt(int *var, int val, int key) {
@@ -332,13 +348,15 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
   Tuple *legacyTuple = dict_find(received, CONFIG_KEY_LEGACY);
   Tuple *batteryTuple = dict_find(received, CONFIG_KEY_BATTERY);
   Tuple *dateonshakeTuple = dict_find(received, CONFIG_KEY_DATEONSHAKE);
+  Tuple *dialTuple = dict_find(received, CONFIG_KEY_DIAL);
 
-  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple) {
+  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple && dialTuple) {
     somethingChanged |= checkAndSaveInt(&invert, invertTuple->value->int32, CONFIG_KEY_INVERT);
     somethingChanged |= checkAndSaveInt(&vibration, vibrationTuple->value->int32, CONFIG_KEY_VIBRATION);
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
     somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
     somethingChanged |= checkAndSaveInt(&dateonshake, dateonshakeTuple->value->int32, CONFIG_KEY_DATEONSHAKE);
+    somethingChanged |= checkAndSaveInt(&dial, dialTuple->value->int32, CONFIG_KEY_DIAL);
 
     logVariables("ReceiveHandler");
 
@@ -377,6 +395,12 @@ static void readConfig() {
     dateonshake = persist_read_int(CONFIG_KEY_DATEONSHAKE);
   } else {
     dateonshake = 1;
+  }
+
+  if (persist_exists(CONFIG_KEY_DIAL)) {
+    dial = persist_read_int(CONFIG_KEY_DIAL);
+  } else {
+    dial = 1;
   }
 
   logVariables("readConfig");
