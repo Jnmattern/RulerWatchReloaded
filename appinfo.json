@@ -4,7 +4,7 @@
   "longName": "Ruler Reloaded",
   "companyName": "Jnm",
   "versionCode": 1,
-  "versionLabel": "3.8",
+  "versionLabel": "3.9",
   "watchapp": {
     "watchface": true
   },
@@ -17,7 +17,8 @@
     "legacy": 1012,
     "battery": 1013,
     "dateonshake": 1014,
-    "dial": 1015
+    "dial": 1015,
+    "themecode": 1016
   },
   "resources": {
     "media": [

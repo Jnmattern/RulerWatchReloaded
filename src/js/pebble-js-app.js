@@ -4,6 +4,7 @@ var legacy = 0;
 var battery = 0;
 var dateonshake = 0;
 var dial = 1;
+var themecode = "d0e0e0d0c0c0c0e0fdfdf4";
 
 function logVariables() {
 	console.log("	invert: " + invert);
@@ -12,6 +13,7 @@ function logVariables() {
   console.log("	battery: " + battery);
   console.log("	dateonshake: " + dateonshake);
   console.log("	dial: " + dial);
+  console.log("	themecode: " + themecode);
 }
 
 Pebble.addEventListener("ready", function() {
@@ -46,19 +48,43 @@ Pebble.addEventListener("ready", function() {
 		dial = 1;
 	}
 
+	themecode = localStorage.getItem("themecode");
+	if (themecode === null) {
+		themecode = "d0e0e0d0c0c0c0e0fdfdf4";
+	}
+
 	logVariables();
 						
 	Pebble.sendAppMessage(JSON.parse('{"invert":'+invert+',"vibration":'+vibration+',"legacy":'+legacy+',"battery":'+battery+
-    ',"dateonshake":'+dateonshake+',"dial":'+dial+'}'));
+    ',"dateonshake":'+dateonshake+',"dial":'+dial+',"themecode":"'+themecode+'"}'));
 });
+
+
+function isWatchColorCapable() {
+  if (typeof Pebble.getActiveWatchInfo === "function") {
+    try {
+      if (Pebble.getActiveWatchInfo().platform != 'aplite') {
+        return true;
+      } else {
+        return false;
+      }
+    } catch(err) {
+      console.log('ERROR calling Pebble.getActiveWatchInfo() : ' + JSON.stringify(err));
+      // Assuming Pebble App 3.0
+      return true;
+    }
+  }
+  //return ((typeof Pebble.getActiveWatchInfo === "function") && Pebble.getActiveWatchInfo().platform!='aplite');
+}
 
 Pebble.addEventListener("showConfiguration", function(e) {
 	console.log("showConfiguration Event");
 
 	logVariables();
 
-  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.8.html?invert=" + invert + "&vibration=" + vibration +
-    "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake + "&dial=" + dial;
+  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.9.html?invert=" + invert + "&vibration=" + vibration +
+    "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake + "&dial=" + dial + "&themecode=" + themecode +
+    "&colorCapable=" + isWatchColorCapable();
 
   console.log("Opening URL: "+url);
 
@@ -68,7 +94,7 @@ Pebble.addEventListener("showConfiguration", function(e) {
 Pebble.addEventListener("webviewclosed", function(e) {
 	console.log("Configuration window closed");
 	console.log(e.type);
-	console.log(e.response);
+  console.log("Response: " + decodeURIComponent(e.response));
 
 	var configuration = JSON.parse(decodeURIComponent(e.response));
   Pebble.sendAppMessage(configuration);
@@ -90,4 +116,7 @@ Pebble.addEventListener("webviewclosed", function(e) {
 
   dial = configuration["dial"];
 	localStorage.setItem("dial", dial);
+
+  themecode = configuration["themecode"];
+	localStorage.setItem("themecode", themecode);
 });

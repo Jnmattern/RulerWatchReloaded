@@ -17,7 +17,8 @@ enum {
   CONFIG_KEY_LEGACY =       1012,
   CONFIG_KEY_BATTERY =      1013,
   CONFIG_KEY_DATEONSHAKE =  1014,
-  CONFIG_KEY_DIAL =         1015
+  CONFIG_KEY_DIAL =         1015,
+  CONFIG_KEY_THEMECODE =    1016
 };
 
 static Window *window;
@@ -33,6 +34,26 @@ static GPoint line2_p2;
 static GPoint mark1 = { 24, 0 };
 static GPoint mark2 = { 0, 0 };
 static int hour_line_ypos = 84;
+
+enum {
+  COLOR_OUTER_BORDER = 0,
+  COLOR_HOUR_DIGIT, // 1
+  COLOR_HOUR_MARK, // 2
+  COLOR_HALF_MARK, // 3
+  COLOR_QUARTER_MARK, // 4
+  COLOR_5MIN_MARK, // 5
+  COLOR_BATTERY_LEVEL_DIGITS, // 6
+  COLOR_BATTERY_MARK_BORDER, // 7
+  COLOR_BACKGROUND, // 8
+  COLOR_BATTERY_DIAL_BACKGROUND, // 9
+  COLOR_BATTERY_MARK_BACKGROUND, // 10
+  COLOR_NUM
+};
+
+//                               0 1 2 3 4 5 6 7 8 9 10
+static char themeCodeText[30] = "d0e0e0d0c0c0c0e0fdfdf4";
+static GColor colorTheme[COLOR_NUM];
+
 
 static int markWidth[12] = { MARK_0, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5, MARK_30, MARK_5, MARK_5, MARK_15, MARK_5, MARK_5 };
 
@@ -78,18 +99,67 @@ static bool animRunning = false;
 static AnimationImplementation animImpl;
 static Animation *anim;
 
+static void drawBackground(GContext *ctx) {
+#ifdef PBL_COLOR
+  graphics_context_set_fill_color(ctx, colorTheme[COLOR_BACKGROUND]);
+#else
+  graphics_context_set_fill_color(ctx, bgColor);
+#endif
+  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+}
+
 static void drawDial(GContext *ctx) {
+  static GRect left   = { {   0,   0 }, {   9, 168 } };
+  static GRect right  = { { 135,   0 }, {   9, 168 } };
+  static GRect top    = { {   0,   0 }, { 144,   5 } };
+  GRect bottom = { { 0, 2*hour_line_ypos-4 }, { 144, 172-2*hour_line_ypos } };
+  GRect line  = { { 0, hour_line_ypos-1 }, { 144, 2 } };
+  GRect lineleft  = { { 0, hour_line_ypos-5 }, { 4, 10 } };
+  GRect lineright = { { 140, hour_line_ypos-5 }, { 4, 10 } };
+  
   if (dial) {
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
+    graphics_context_set_stroke_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
+  #else
     graphics_context_set_fill_color(ctx, fgColor);
-    graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+    graphics_context_set_stroke_color(ctx, fgColor);
+  #endif
+    graphics_fill_rect(ctx, left, 0, GCornerNone);
+    graphics_fill_rect(ctx, right, 0, GCornerNone);
+    graphics_fill_rect(ctx, top, 0, GCornerNone);
+    graphics_fill_rect(ctx, bottom, 0, GCornerNone);
+    graphics_fill_rect(ctx, line, 0, GCornerNone);
+
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, colorTheme[COLOR_BACKGROUND]);
+  #else
     graphics_context_set_fill_color(ctx, bgColor);
-    graphics_fill_rect(ctx, GRect(5, 5, 134, hour_line_ypos-6), 4, GCornersAll);
-    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 134, hour_line_ypos-6), 4, GCornersAll);
+  #endif
+  
+    graphics_fill_rect(ctx, GRect(5, 5, 5, hour_line_ypos-6), 4, GCornersLeft);
+    graphics_fill_rect(ctx, GRect(134, 5, 5, hour_line_ypos-6), 4, GCornersRight);
+    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 5, hour_line_ypos-5), 4, GCornersLeft);
+    graphics_fill_rect(ctx, GRect(134, hour_line_ypos+1, 5, hour_line_ypos-5), 4, GCornersRight);  
   } else {
-    graphics_context_set_fill_color(ctx, bgColor);
-    graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
+  #else
     graphics_context_set_fill_color(ctx, fgColor);
-    graphics_fill_rect(ctx, GRect(0, hour_line_ypos-1, 144, 2), 0, GCornerNone);
+  #endif
+    graphics_fill_rect(ctx, line, 0, GCornerNone);
+    graphics_fill_rect(ctx, lineleft, 0, GCornerNone);
+    graphics_fill_rect(ctx, lineright, 0, GCornerNone);    
+
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, colorTheme[COLOR_BACKGROUND]);
+  #else
+    graphics_context_set_fill_color(ctx, bgColor);
+  #endif
+    graphics_fill_rect(ctx, GRect(0, hour_line_ypos-6, 5, 5), 4, GCornerBottomLeft);
+    graphics_fill_rect(ctx, GRect(139, hour_line_ypos-6, 5, 5), 4, GCornerBottomRight);
+    graphics_fill_rect(ctx, GRect(0, hour_line_ypos+1, 5, 5), 4, GCornerTopLeft);
+    graphics_fill_rect(ctx, GRect(139, hour_line_ypos+1, 5, 5), 4, GCornerTopRight);  
   }    
 }
 
@@ -136,12 +206,24 @@ static void drawRuler(GContext *ctx) {
   }
 
   graphics_context_set_stroke_color(ctx, fgColor);
+  
   for (i=0; i<NUM_LABELS; i++) {
     for (j=0; j<12; j++) {
       if ((y > -20) && (y < 188)) {
         if ((y >= 0) && (y < 168)) {
           mark1.y = mark2.y = y;
           mark2.x = mark1.x + markWidth[j];
+        #ifdef PBL_COLOR
+          if (j == 0) {
+            graphics_context_set_stroke_color(ctx, colorTheme[COLOR_HOUR_MARK]);
+          } else if (j == 6) {
+            graphics_context_set_stroke_color(ctx, colorTheme[COLOR_HALF_MARK]);
+          } else if ((j == 3) || (j == 9)) {
+            graphics_context_set_stroke_color(ctx, colorTheme[COLOR_QUARTER_MARK]);
+          } else {
+            graphics_context_set_stroke_color(ctx, colorTheme[COLOR_5MIN_MARK]);
+          }
+        #endif
           graphics_draw_line(ctx, mark1, mark2);
           if (!legacy) {
             mark1.y = mark2.y = y - 1;
@@ -153,7 +235,11 @@ static void drawRuler(GContext *ctx) {
         
         if (j == 0) {
           snprintf(text, sizeof(text), "%d", labels[i]);
+        #ifdef PBL_COLOR
+          graphics_context_set_text_color(ctx, colorTheme[COLOR_HOUR_DIGIT]);
+        #else
           graphics_context_set_text_color(ctx, fgColor);
+        #endif
           if (legacy) {
             rect_text.origin.y = y - 19;
             graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap,
@@ -177,26 +263,42 @@ static void drawBattery(GContext *ctx) {
   GPoint battery_mark_pos = GPoint(7+((int)battery_level*12/10), 144);
 
   // Battery Gauge Background
+#ifdef PBL_COLOR
+  graphics_context_set_fill_color(ctx, colorTheme[COLOR_BATTERY_DIAL_BACKGROUND]);
+#else
   graphics_context_set_fill_color(ctx, bgColor);
-  if (dial) {
-    graphics_fill_rect(ctx, GRect(5, 149, 134, 14), 4, GCornersAll);
-  } else {
-    graphics_fill_rect(ctx, GRect(0, 149, 144, 20), 0, GCornerNone);
-    graphics_context_set_fill_color(ctx, fgColor);
-    graphics_draw_round_rect(ctx, GRect(5, 149, 134, 14), 4);
-  }
+#endif
+  graphics_fill_rect(ctx, GRect(4, 148, 136, 16), 4, GCornersAll);
+
+#ifdef PBL_COLOR
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_MARK_BORDER]);
+#else
+  graphics_context_set_stroke_color(ctx, fgColor);
+#endif
+  graphics_draw_round_rect(ctx, GRect(4, 148, 136, 16), 4);
 
   // Battery line and graduations
+#ifdef PBL_COLOR
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_LEVEL_DIGITS]);
+  graphics_context_set_text_color(ctx, colorTheme[COLOR_BATTERY_LEVEL_DIGITS]);
+#else
   graphics_context_set_stroke_color(ctx, fgColor);
+  graphics_context_set_text_color(ctx, fgColor);
+#endif
   graphics_draw_line(ctx, GPoint(11, 161), GPoint(131, 161));
   for (i=0, x=11; i<=10; i++, x+=12) {
     graphics_draw_line(ctx, GPoint(x, 159), GPoint(x, 161));
-    graphics_draw_text	(ctx, t[i], battery_gauge_font, GRect(x-9, 150, 20, 11), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+    graphics_draw_text(ctx, t[i], battery_gauge_font, GRect(x-9, 150, 20, 11), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   }
 
   // Battery mark
+#ifdef PBL_COLOR
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_MARK_BORDER]);
+  graphics_context_set_fill_color(ctx, colorTheme[COLOR_BATTERY_MARK_BACKGROUND]);
+#else
   graphics_context_set_stroke_color(ctx, fgColor);
   graphics_context_set_fill_color(ctx, bgColor);
+#endif
   gpath_move_to(battery_mark_upper_path, battery_mark_pos);
   gpath_move_to(battery_mark_lower_path, battery_mark_pos);
   gpath_draw_filled(ctx, battery_mark_upper_path);
@@ -206,8 +308,9 @@ static void drawBattery(GContext *ctx) {
 }
 
 static void layer_update(Layer *me, GContext* ctx) {
-  drawDial(ctx);
+  drawBackground(ctx);
   drawRuler(ctx);
+  drawDial(ctx);
   if (battery) {
     drawBattery(ctx);
   }
@@ -291,6 +394,38 @@ static void handle_battery(BatteryChargeState charge) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "handle_battery -> %d", (int)battery_level);
 }
 
+static int hexCharToInt(const char digit) {
+  if ((digit >= '0') && (digit <= '9')) {
+    return (int)(digit - '0');
+  } else if ((digit >= 'a') && (digit <= 'f')) {
+    return 10 + (int)(digit - 'a');
+  } else if ((digit >= 'A') && (digit <= 'F')) {
+    return 10 + (int)(digit - 'A');
+  } else {
+    return -1;
+  }
+}
+
+static int hexStringToByte(const char *hexString) {
+  int l = strlen(hexString);
+  if (l == 0) return 0;
+  if (l == 1) return hexCharToInt(hexString[0]);
+  
+  return 16*hexCharToInt(hexString[0]) + hexCharToInt(hexString[1]);
+}
+
+void decodeThemeCode(char *code) {
+#ifdef PBL_COLOR
+  int i;
+  
+  for (i=0; i<11; i++) {
+    colorTheme[i] = (GColor8){.argb=(uint8_t)hexStringToByte(code + 2*i)};
+  }
+#else
+  // Do nothing on APLITE
+#endif
+}
+
 static void setColors() {
   if (invert) {
     bgColor = GColorBlack;
@@ -299,6 +434,11 @@ static void setColors() {
     bgColor = GColorWhite;
     fgColor = GColorBlack;
   }
+  
+#ifdef PBL_COLOR
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "decodeThemeCode from setColors (%s)", themeCodeText);
+  decodeThemeCode(themeCodeText);
+#endif
 }
 
 static void setHourLinePoints() {
@@ -324,6 +464,7 @@ static void applyConfig() {
 static void logVariables(const char *msg) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n\tdateonshake=%d\n\tdial=%d\n",
     msg, invert, vibration, legacy, battery, dateonshake, dial);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "\tthemecode=%s\n", themeCodeText);
 }
 
 static bool checkAndSaveInt(int *var, int val, int key) {
@@ -332,6 +473,24 @@ static bool checkAndSaveInt(int *var, int val, int key) {
     persist_write_int(key, val);
     return true;
   } else {
+    return false;
+  }
+}
+
+bool checkAndSaveString(char *var, char *val, int key) {
+  int ret;
+
+  if (strcmp(var, val) != 0) {
+    strcpy(var, val);
+    ret = persist_write_string(key, val);
+    if (ret < (int)strlen(val)) {
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "checkAndSaveString() : persist_write_string(%d, %s) returned %d",
+              key, val, ret);
+    }
+    return true;
+  } else {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "checkAndSaveString() : value has not changed (was : %s, is : %s)",
+        var, val);
     return false;
   }
 }
@@ -349,15 +508,16 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
   Tuple *batteryTuple = dict_find(received, CONFIG_KEY_BATTERY);
   Tuple *dateonshakeTuple = dict_find(received, CONFIG_KEY_DATEONSHAKE);
   Tuple *dialTuple = dict_find(received, CONFIG_KEY_DIAL);
+  Tuple *themeCodeTuple = dict_find(received, CONFIG_KEY_THEMECODE);
 
-  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple && dialTuple) {
+  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple && dialTuple && themeCodeTuple) {
     somethingChanged |= checkAndSaveInt(&invert, invertTuple->value->int32, CONFIG_KEY_INVERT);
     somethingChanged |= checkAndSaveInt(&vibration, vibrationTuple->value->int32, CONFIG_KEY_VIBRATION);
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
     somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
     somethingChanged |= checkAndSaveInt(&dateonshake, dateonshakeTuple->value->int32, CONFIG_KEY_DATEONSHAKE);
     somethingChanged |= checkAndSaveInt(&dial, dialTuple->value->int32, CONFIG_KEY_DIAL);
-
+    somethingChanged |= checkAndSaveString(themeCodeText, themeCodeTuple->value->cstring, CONFIG_KEY_THEMECODE);
     logVariables("ReceiveHandler");
 
     if (somethingChanged) {
@@ -403,6 +563,16 @@ static void readConfig() {
     dial = 1;
   }
 
+  if (persist_exists(CONFIG_KEY_THEMECODE)) {
+    persist_read_string(CONFIG_KEY_THEMECODE, themeCodeText, sizeof(themeCodeText));
+  } else {
+    strcpy(themeCodeText, "d0e0e0d0c0c0c0e0fdfdf4");
+    persist_write_string(CONFIG_KEY_THEMECODE, themeCodeText);
+  }
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "decodeThemeCode from readConfig (%s)", themeCodeText);
+  decodeThemeCode(themeCodeText);
+
   logVariables("readConfig");
 }
 
@@ -438,8 +608,7 @@ static void init() {
     }
   }
 
-  fgColor = GColorWhite;
-  bgColor = GColorBlack;
+  setColors();
 
   readConfig();
   setColors();
