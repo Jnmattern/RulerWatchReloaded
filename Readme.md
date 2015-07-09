@@ -10,3 +10,7 @@
 
 ###Blueish
 ![Blueish](http://download.famillemattern.com/public/pebble/RulerWatchReloaded/RulerWatchReloaded_Blueish.png) d7c1c1c2c3d7c1d7ebd7eb
+
+###Vintage
+![Vintage](http://download.famillemattern.com/public/pebble/RulerWatchReloaded/RulerWatchReloaded_Vintage.png) f0ffffead5c0ffc0c0c0ff
+>Disable Legacy mode, Battery display and Outer border display
