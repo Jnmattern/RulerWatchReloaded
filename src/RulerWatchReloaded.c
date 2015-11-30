@@ -11,6 +11,22 @@
 #define MARK_30 32
 #define NUM_LABELS 59
 
+#if defined(PBL_RECT)
+
+#define WIDTH 144
+#define HEIGHT 168
+#define XOFFSET 0
+#define YOFFSET 0
+
+#elif defined(PBL_ROUND)
+
+#define WIDTH 180
+#define HEIGHT 180
+#define XOFFSET 18
+#define YOFFSET 6
+
+#endif
+
 enum {
   CONFIG_KEY_INVERT =       1010,
   CONFIG_KEY_VIBRATION =    1011,
@@ -26,14 +42,14 @@ static Layer *rootLayer;
 static Layer *layer;
 static int hour_size = 12 * LINE_INTERVAL; // 12 marks, one every 5 minutes
 static int hour_part_size;
-static GRect rect_text = { { RULER_XOFFSET, 0 }, { 60, 60 } };
+static GRect rect_text = { { RULER_XOFFSET + XOFFSET, 0 }, { 60, 60 } };
 static GPoint line1_p1 = { 0, 84 };
 static GPoint line1_p2 = { 143, 84 };
 static GPoint line2_p1;
 static GPoint line2_p2;
-static GPoint mark1 = { 24, 0 };
-static GPoint mark2 = { 0, 0 };
-static int hour_line_ypos = 84;
+static GPoint mark1 = { 24+XOFFSET, YOFFSET };
+static GPoint mark2 = { XOFFSET, YOFFSET };
+static int hour_line_ypos = 84+YOFFSET;
 
 enum {
   COLOR_OUTER_BORDER = 0,
@@ -113,11 +129,12 @@ static void drawDial(GContext *ctx) {
   static GRect right  = { { 135,   0 }, {   9, 168 } };
   static GRect top    = { {   0,   0 }, { 144,   5 } };
   GRect bottom = { { 0, 2*hour_line_ypos-4 }, { 144, 172-2*hour_line_ypos } };
-  GRect line  = { { 0, hour_line_ypos-1 }, { 144, 2 } };
+  GRect line  = { { 0, hour_line_ypos-1 }, { WIDTH, 2 } };
   GRect lineleft  = { { 0, hour_line_ypos-5 }, { 4, 10 } };
-  GRect lineright = { { 140, hour_line_ypos-5 }, { 4, 10 } };
+  GRect lineright = { { WIDTH-4, hour_line_ypos-5 }, { 4, 10 } };
   
   if (dial) {
+#if defined(PBL_RECT)
   #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
     graphics_context_set_stroke_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
@@ -136,11 +153,24 @@ static void drawDial(GContext *ctx) {
   #else
     graphics_context_set_fill_color(ctx, bgColor);
   #endif
-  
-    graphics_fill_rect(ctx, GRect(5, 5, 5, hour_line_ypos-6), 4, GCornersLeft);
-    graphics_fill_rect(ctx, GRect(134, 5, 5, hour_line_ypos-6), 4, GCornersRight);
-    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1, 5, hour_line_ypos-5), 4, GCornersLeft);
-    graphics_fill_rect(ctx, GRect(134, hour_line_ypos+1, 5, hour_line_ypos-5), 4, GCornersRight);  
+
+    graphics_fill_rect(ctx, GRect(5, 5 + YOFFSET, 5, hour_line_ypos-6), 4, GCornersLeft);
+    graphics_fill_rect(ctx, GRect(WIDTH-10, 5 + YOFFSET, 5, hour_line_ypos-6), 4, GCornersRight);
+    graphics_fill_rect(ctx, GRect(5, hour_line_ypos+1 + YOFFSET, 5, hour_line_ypos-5), 4, GCornersLeft);
+    graphics_fill_rect(ctx, GRect(WIDTH-10, hour_line_ypos+1 + YOFFSET, 5, hour_line_ypos-5), 4, GCornersRight);
+#elif defined(PBL_ROUND)
+
+    graphics_context_set_fill_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
+    graphics_context_set_stroke_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
+    graphics_context_set_stroke_width(ctx, 10);
+
+    graphics_draw_arc(ctx, GRect (0, 0, WIDTH, HEIGHT), GOvalScaleModeFitCircle, 0, TRIG_MAX_ANGLE);
+    graphics_fill_rect(ctx, line, 0, GCornerNone);
+    graphics_context_set_stroke_width(ctx, 1);
+
+#endif
+
+
   } else {
   #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
@@ -157,9 +187,9 @@ static void drawDial(GContext *ctx) {
     graphics_context_set_fill_color(ctx, bgColor);
   #endif
     graphics_fill_rect(ctx, GRect(0, hour_line_ypos-6, 5, 5), 4, GCornerBottomLeft);
-    graphics_fill_rect(ctx, GRect(139, hour_line_ypos-6, 5, 5), 4, GCornerBottomRight);
+    graphics_fill_rect(ctx, GRect(WIDTH-5, hour_line_ypos-6, 5, 5), 4, GCornerBottomRight);
     graphics_fill_rect(ctx, GRect(0, hour_line_ypos+1, 5, 5), 4, GCornerTopLeft);
-    graphics_fill_rect(ctx, GRect(139, hour_line_ypos+1, 5, 5), 4, GCornerTopRight);  
+    graphics_fill_rect(ctx, GRect(WIDTH-5, hour_line_ypos+1, 5, 5), 4, GCornerTopRight);
   }    
 }
 
@@ -209,8 +239,8 @@ static void drawRuler(GContext *ctx) {
   
   for (i=0; i<NUM_LABELS; i++) {
     for (j=0; j<12; j++) {
-      if ((y > -20) && (y < 188)) {
-        if ((y >= 0) && (y < 168)) {
+      if ((y > -20) && (y < HEIGHT+20)) {
+        if ((y >= 0) && (y < HEIGHT)) {
           mark1.y = mark2.y = y;
           mark2.x = mark1.x + markWidth[j];
         #ifdef PBL_COLOR
@@ -259,8 +289,9 @@ static void drawRuler(GContext *ctx) {
 static void drawBattery(GContext *ctx) {
   int i, x;
   static char t[11][3] = { "E", "10", "20", "30", "40", "50", "60", "70", "80", "90", "F" };
+  static int batteryGaugeYOffset = 2*YOFFSET;
 
-  GPoint battery_mark_pos = GPoint(7+((int)battery_level*12/10), 144);
+  GPoint battery_mark_pos = GPoint(7+((int)battery_level*12/10) + XOFFSET, 144 - batteryGaugeYOffset);
 
   // Battery Gauge Background
 #ifdef PBL_COLOR
@@ -268,14 +299,14 @@ static void drawBattery(GContext *ctx) {
 #else
   graphics_context_set_fill_color(ctx, bgColor);
 #endif
-  graphics_fill_rect(ctx, GRect(4, 148, 136, 16), 4, GCornersAll);
+  graphics_fill_rect(ctx, GRect(4 + XOFFSET, 148 - batteryGaugeYOffset, 136, 16), 4, GCornersAll);
 
 #ifdef PBL_COLOR
   graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_MARK_BORDER]);
 #else
   graphics_context_set_stroke_color(ctx, fgColor);
 #endif
-  graphics_draw_round_rect(ctx, GRect(4, 148, 136, 16), 4);
+  graphics_draw_round_rect(ctx, GRect(4 + XOFFSET, 148 - batteryGaugeYOffset, 136, 16), 4);
 
   // Battery line and graduations
 #ifdef PBL_COLOR
@@ -285,10 +316,10 @@ static void drawBattery(GContext *ctx) {
   graphics_context_set_stroke_color(ctx, fgColor);
   graphics_context_set_text_color(ctx, fgColor);
 #endif
-  graphics_draw_line(ctx, GPoint(11, 161), GPoint(131, 161));
-  for (i=0, x=11; i<=10; i++, x+=12) {
-    graphics_draw_line(ctx, GPoint(x, 159), GPoint(x, 161));
-    graphics_draw_text(ctx, t[i], battery_gauge_font, GRect(x-9, 150, 20, 11), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+  graphics_draw_line(ctx, GPoint(11 + XOFFSET, 161 - batteryGaugeYOffset), GPoint(131 + XOFFSET, 161 - batteryGaugeYOffset));
+  for (i=0, x=11 + XOFFSET; i<=10; i++, x+=12) {
+    graphics_draw_line(ctx, GPoint(x, 159 - batteryGaugeYOffset), GPoint(x, 161 - batteryGaugeYOffset));
+    graphics_draw_text(ctx, t[i], battery_gauge_font, GRect(x-9, 150 - batteryGaugeYOffset, 20, 11), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   }
 
   // Battery mark
@@ -442,10 +473,9 @@ static void setColors() {
 }
 
 static void setHourLinePoints() {
+  hour_line_ypos = HEIGHT / 2;
   if (battery) {
-    hour_line_ypos = 73;
-  } else {
-    hour_line_ypos = 84;
+    hour_line_ypos -= 11;
   }
 
   line1_p1.y = line1_p2.y = hour_line_ypos;
@@ -627,7 +657,7 @@ static void init() {
 
   rootLayer = window_get_root_layer(window);
 
-  layer = layer_create(GRect(0, 0, 144, 168));
+  layer = layer_create(layer_get_bounds(rootLayer));
   layer_set_update_proc(layer, layer_update);
   layer_add_child(rootLayer, layer);
 
