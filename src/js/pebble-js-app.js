@@ -59,6 +59,21 @@ Pebble.addEventListener("ready", function() {
     ',"dateonshake":'+dateonshake+',"dial":'+dial+',"themecode":"'+themecode+'"}'));
 });
 
+function isWatchRound() {
+  if (typeof Pebble.getActiveWatchInfo === "function") {
+    try {
+      if (Pebble.getActiveWatchInfo().platform != 'chalk') {
+        return false;
+      } else {
+        return true;
+      }
+    } catch(err) {
+      console.log('ERROR calling Pebble.getActiveWatchInfo() : ' + JSON.stringify(err));
+      // Assuming Pebble is not round
+      return false;
+    }
+  }
+}
 
 function isWatchColorCapable() {
   if (typeof Pebble.getActiveWatchInfo === "function") {
@@ -82,9 +97,9 @@ Pebble.addEventListener("showConfiguration", function(e) {
 
 	logVariables();
 
-  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.9.html?invert=" + invert + "&vibration=" + vibration +
+  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.11.html?invert=" + invert + "&vibration=" + vibration +
     "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake + "&dial=" + dial + "&themecode=" + themecode +
-    "&colorCapable=" + isWatchColorCapable();
+    "&colorCapable=" + isWatchColorCapable() + "&round=" + isWatchRound();
 
   console.log("Opening URL: "+url);
 

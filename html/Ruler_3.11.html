@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html manifest="appcache_3.9.manifest">
+<!-- html manifest="appcache_3.11.manifest" -->
+<html>
         <head>
                 <title>Ruler</title>
                 <meta charset='utf-8'>
@@ -41,6 +42,17 @@
   } else {
     args.colorCapable = 0;
   }
+
+if (typeof (args.round) == "undefined") {
+  args.round = 0;
+}
+
+if ((args.round == "true") || (args.round == 1)) {
+  args.round = 1;
+} else {
+  args.round = 0;
+}
+
 </script>
 
     <div data-role="content">
@@ -207,9 +219,17 @@
 </fieldset>
 
 <div data-role="fieldcontain">
-  <div style="text-align: center;"><canvas id="preview" width="144" height="168">
+  <div style="text-align: center;">
+    <script>
+      if (args.round) {
+        document.writeln('<canvas id="preview" width="180" height="180">');
+      } else {
+        document.writeln('<canvas id="preview" width="144" height="168">');
+      }
+    </script>
     Your browser does not support the HTML5 canvas tag.
-  </canvas></div>
+    </canvas>
+  </div>
   <input type="text" id="themecode" name="themecode" data-clear-btn="true">
   <input id="parseTheme" type="button" data-theme="a" data-icon="edit" data-iconpos="left" value="Use Code" data-mini="true">
 </div>
@@ -236,7 +256,11 @@
   ];
   
   var img = new Image();
-  img.src = "RulerPreview.png";
+  var imageNamePrefix = "RulerPreview";
+  if (args.round) {
+    imageNamePrefix += "Chalk";
+  }
+  img.src = imageNamePrefix + ".png";
   img.onload = function() { updatePreview(); };
 
   function updatePreview(){
@@ -404,7 +428,7 @@
   }
 
   function setPreviewImage() {
-    img.src = "RulerPreview" + parseInt($("#battery").val(), 10) + parseInt($("#dial").val(), 10) + parseInt($("#legacy").val(), 10) + ".png";
+    img.src = imageNamePrefix + parseInt($("#battery").val(), 10) + parseInt($("#dial").val(), 10) + parseInt($("#legacy").val(), 10) + ".png";
     updatePreview();
   }
 

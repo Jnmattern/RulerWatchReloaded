@@ -169,8 +169,6 @@ static void drawDial(GContext *ctx) {
     graphics_context_set_stroke_width(ctx, 1);
 
 #endif
-
-
   } else {
   #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, colorTheme[COLOR_OUTER_BORDER]);
@@ -290,8 +288,23 @@ static void drawBattery(GContext *ctx) {
   int i, x;
   static char t[11][3] = { "E", "10", "20", "30", "40", "50", "60", "70", "80", "90", "F" };
   static int batteryGaugeYOffset = 2*YOFFSET;
+  static GPoint battery_mark_pos = {0, 0};
+#if defined(PBL_ROUND)
+  static int32_t angle1 = 3*TRIG_MAX_ANGLE/8;
+  static int32_t angle2 = 5*TRIG_MAX_ANGLE/8;
+  static int32_t a = 0;
+  static int32_t r = 0;
+  static int32_t s = TRIG_MAX_ANGLE/40;
+  static int32_t cos, sin;
+  static GRect rect1 = { {18, 18}, {144, 144} };
+  static GRect rect2 = { {12, 12}, {156, 156} };
+  static GPoint p1 = { 0, 0 };
+  static GPoint p2 = { 0, 0 };
+#endif
 
-  GPoint battery_mark_pos = GPoint(7+((int)battery_level*12/10) + XOFFSET, 144 - batteryGaugeYOffset);
+
+#if defined(PBL_RECT)
+  battery_mark_pos = GPoint(7+((int)battery_level*12/10) + XOFFSET, 144 - batteryGaugeYOffset);
 
   // Battery Gauge Background
 #ifdef PBL_COLOR
@@ -336,6 +349,53 @@ static void drawBattery(GContext *ctx) {
   gpath_draw_filled(ctx, battery_mark_lower_path);
   gpath_draw_outline(ctx, battery_mark_upper_path);
   gpath_draw_outline(ctx, battery_mark_lower_path);
+
+#elif defined(PBL_ROUND)
+
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_MARK_BORDER]);
+  graphics_context_set_stroke_width(ctx, 18);
+  graphics_draw_arc	(ctx, rect1, GOvalScaleModeFitCircle, angle1, angle2);
+
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_DIAL_BACKGROUND]);
+  graphics_context_set_stroke_width(ctx, 16);
+  graphics_draw_arc	(ctx, rect1, GOvalScaleModeFitCircle, angle1, angle2);
+
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_LEVEL_DIGITS]);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_draw_arc	(ctx, rect2, GOvalScaleModeFitCircle, angle1, angle2);
+
+  graphics_context_set_text_color(ctx, colorTheme[COLOR_BATTERY_LEVEL_DIGITS]);
+
+  for (i=0, a=angle1; i<=10; i++, a-=s) {
+    int32_t cos = cos_lookup(a);
+    int32_t sin = sin_lookup(a);
+
+    p1.x = 90 + 75*cos/TRIG_MAX_RATIO;
+    p1.y = 90 + 75*sin/TRIG_MAX_RATIO;
+    p2.x = 90 + 78*cos/TRIG_MAX_RATIO;
+    p2.y = 90 + 78*sin/TRIG_MAX_RATIO;
+
+    graphics_draw_line(ctx, p1, p2);
+    graphics_draw_text(ctx, t[i], battery_gauge_font, GRect(p1.x-(i<8?8:10), p1.y-(i==5?9:10), 20, 11), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+  }
+
+  graphics_context_set_stroke_color(ctx, colorTheme[COLOR_BATTERY_MARK_BORDER]);
+  graphics_context_set_fill_color(ctx, colorTheme[COLOR_BATTERY_MARK_BACKGROUND]);
+
+  a = angle1-battery_level*s/10;
+  r = 59 + battery_level/25;
+  battery_mark_pos.x = 86 + r * cos_lookup(a)/TRIG_MAX_RATIO;
+  battery_mark_pos.y = 90 + r * sin_lookup(a)/TRIG_MAX_RATIO;
+
+  gpath_rotate_to(battery_mark_upper_path, a - TRIG_MAX_ANGLE/4);
+  gpath_rotate_to(battery_mark_lower_path, a - TRIG_MAX_ANGLE/4);
+  gpath_move_to(battery_mark_upper_path, battery_mark_pos);
+  gpath_move_to(battery_mark_lower_path, battery_mark_pos);
+  gpath_draw_filled(ctx, battery_mark_upper_path);
+  gpath_draw_filled(ctx, battery_mark_lower_path);
+  gpath_draw_outline(ctx, battery_mark_upper_path);
+  gpath_draw_outline(ctx, battery_mark_lower_path);
+#endif
 }
 
 static void layer_update(Layer *me, GContext* ctx) {
@@ -474,10 +534,13 @@ static void setColors() {
 
 static void setHourLinePoints() {
   hour_line_ypos = HEIGHT / 2;
+
+#if defined(PBL_RECT)
   if (battery) {
     hour_line_ypos -= 11;
   }
-
+#endif
+  
   line1_p1.y = line1_p2.y = hour_line_ypos;
   line2_p1 = line1_p1;
   line2_p2 = line1_p2;
