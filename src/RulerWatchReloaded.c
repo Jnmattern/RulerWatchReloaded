@@ -434,11 +434,13 @@ static void handleAnim(struct Animation *anim, const AnimationProgress normTime)
 }
 
 static void destroyAnim() {
+/*
 #ifdef PBL_PLATFORM_APLITE
   if (anim != NULL) {
     animation_destroy(anim);
   }
 #endif
+*/
   anim = NULL;
 }
 
