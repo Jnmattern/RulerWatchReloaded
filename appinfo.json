@@ -4,7 +4,7 @@
   "longName": "Ruler Reloaded",
   "companyName": "Jnm",
   "versionCode": 1,
-  "versionLabel": "3.13",
+  "versionLabel": "3.14",
   "watchapp": {
     "watchface": true
   },
@@ -18,7 +18,8 @@
     "battery": 1013,
     "dateonshake": 1014,
     "dial": 1015,
-    "themecode": 1016
+    "themecode": 1016,
+    "pebblefont": 1017
   },
   "resources": {
     "media": [
@@ -32,6 +33,12 @@
         "characterRegex": "[0-9EF]",
         "file": "fonts/04b_03/04B_03__.TTF",
         "name": "FONT_BATTERY_GAUGE_SUBSET_8",
+        "type": "font"
+      },
+      {
+        "characterRegex": "[0-9]",
+        "file": "fonts/LECO_1976/LECO_1976-Regular.otf",
+        "name": "FONT_LECO_DIGITS_48",
         "type": "font"
       }
     ]

@@ -4,6 +4,7 @@ var legacy = 0;
 var battery = 0;
 var dateonshake = 0;
 var dial = 1;
+var pebblefont = 0;
 var themecode = "d0e0e0d0c0c0c0e0fdfdf4";
 
 function logVariables() {
@@ -13,6 +14,7 @@ function logVariables() {
   console.log("	battery: " + battery);
   console.log("	dateonshake: " + dateonshake);
   console.log("	dial: " + dial);
+  console.log("	pebblefont: " + pebblefont);
   console.log("	themecode: " + themecode);
 }
 
@@ -48,6 +50,11 @@ Pebble.addEventListener("ready", function() {
 		dial = 1;
 	}
 
+	pebblefont = localStorage.getItem("pebblefont");
+	if (!pebblefont) {
+		pebblefont = 0;
+	}
+
 	themecode = localStorage.getItem("themecode");
 	if (themecode === null) {
 		themecode = "d0e0e0d0c0c0c0e0fdfdf4";
@@ -56,7 +63,7 @@ Pebble.addEventListener("ready", function() {
 	logVariables();
 						
 	Pebble.sendAppMessage(JSON.parse('{"invert":'+invert+',"vibration":'+vibration+',"legacy":'+legacy+',"battery":'+battery+
-    ',"dateonshake":'+dateonshake+',"dial":'+dial+',"themecode":"'+themecode+'"}'));
+    ',"dateonshake":'+dateonshake+',"dial":'+dial+',"pebblefont":'+pebblefont+',"themecode":"'+themecode+'"}'));
 });
 
 function isWatchRound() {
@@ -97,9 +104,9 @@ Pebble.addEventListener("showConfiguration", function(e) {
 
 	logVariables();
 
-  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.11.html?invert=" + invert + "&vibration=" + vibration +
+  var url = "http://www.famillemattern.com/jnm/pebble/Ruler/Ruler_3.14.html?invert=" + invert + "&vibration=" + vibration +
     "&legacy=" + legacy + "&battery=" + battery + "&dateonshake=" + dateonshake + "&dial=" + dial + "&themecode=" + themecode +
-    "&colorCapable=" + isWatchColorCapable() + "&round=" + isWatchRound();
+    "&colorCapable=" + isWatchColorCapable() + "&round=" + isWatchRound() + "&pebblefont=" + pebblefont;
 
   console.log("Opening URL: "+url);
 
@@ -131,6 +138,9 @@ Pebble.addEventListener("webviewclosed", function(e) {
 
   dial = configuration["dial"];
 	localStorage.setItem("dial", dial);
+
+  pebblefont = configuration["pebblefont"];
+	localStorage.setItem("pebblefont", pebblefont);
 
   themecode = configuration["themecode"];
 	localStorage.setItem("themecode", themecode);

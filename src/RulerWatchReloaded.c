@@ -34,7 +34,8 @@ enum {
   CONFIG_KEY_BATTERY =      1013,
   CONFIG_KEY_DATEONSHAKE =  1014,
   CONFIG_KEY_DIAL =         1015,
-  CONFIG_KEY_THEMECODE =    1016
+  CONFIG_KEY_THEMECODE =    1016,
+  CONFIG_KEY_PEBBLEFONT =   1017
 };
 
 static Window *window;
@@ -86,12 +87,19 @@ static int legacy = false;
 static int battery = false;
 static int dateonshake = true;
 static int dial = true;
+static int pebblefont = false;
 
 static GColor fgColor;
 static GColor bgColor;
 
 static uint8_t battery_level;
 static GFont battery_gauge_font;
+
+static GFont pebble_font;
+static GFont default_font;
+
+static GFont current_font;
+static int font_offset_fix = 0;
 
 static const GPathInfo battery_mark_upper_path_info = {
   .num_points = 5,
@@ -273,9 +281,8 @@ static void drawRuler(GContext *ctx) {
             graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), rect_text, GTextOverflowModeWordWrap,
                                GTextAlignmentLeft, NULL);
           } else {
-            rect_text.origin.y = y - 32;
-            graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49), rect_text, GTextOverflowModeWordWrap,
-                               GTextAlignmentLeft, NULL);
+            rect_text.origin.y = y - font_offset_fix;
+            graphics_draw_text(ctx, text, current_font, rect_text, GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
           }
         }
       }
@@ -550,7 +557,18 @@ static void setHourLinePoints() {
   line2_p2.y++;
 }
 
+static void setFont() {
+  if (pebblefont) {
+    current_font = pebble_font;
+    font_offset_fix = 30;
+  } else {
+    current_font = default_font;
+    font_offset_fix = 32;
+  }
+}
+
 static void applyConfig() {
+  setFont();
   setColors();
   setHourLinePoints();
   layer_mark_dirty(layer);
@@ -559,7 +577,7 @@ static void applyConfig() {
 static void logVariables(const char *msg) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "MSG: %s\n\tinvert=%d\n\tvibration=%d\n\tlegacy=%d\n\tbattery=%d\n\tdateonshake=%d\n\tdial=%d\n",
     msg, invert, vibration, legacy, battery, dateonshake, dial);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "\tthemecode=%s\n", themeCodeText);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "\tpebblefont=%d\n\tthemecode=%s\n", pebblefont, themeCodeText);
 }
 
 static bool checkAndSaveInt(int *var, int val, int key) {
@@ -603,15 +621,17 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
   Tuple *batteryTuple = dict_find(received, CONFIG_KEY_BATTERY);
   Tuple *dateonshakeTuple = dict_find(received, CONFIG_KEY_DATEONSHAKE);
   Tuple *dialTuple = dict_find(received, CONFIG_KEY_DIAL);
+  Tuple *pebblefontTuple = dict_find(received, CONFIG_KEY_PEBBLEFONT);
   Tuple *themeCodeTuple = dict_find(received, CONFIG_KEY_THEMECODE);
 
-  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple && dialTuple && themeCodeTuple) {
+  if (invertTuple && vibrationTuple && legacyTuple && batteryTuple && dateonshakeTuple && dialTuple && pebblefontTuple && themeCodeTuple) {
     somethingChanged |= checkAndSaveInt(&invert, invertTuple->value->int32, CONFIG_KEY_INVERT);
     somethingChanged |= checkAndSaveInt(&vibration, vibrationTuple->value->int32, CONFIG_KEY_VIBRATION);
     somethingChanged |= checkAndSaveInt(&legacy, legacyTuple->value->int32, CONFIG_KEY_LEGACY);
     somethingChanged |= checkAndSaveInt(&battery, batteryTuple->value->int32, CONFIG_KEY_BATTERY);
     somethingChanged |= checkAndSaveInt(&dateonshake, dateonshakeTuple->value->int32, CONFIG_KEY_DATEONSHAKE);
     somethingChanged |= checkAndSaveInt(&dial, dialTuple->value->int32, CONFIG_KEY_DIAL);
+    somethingChanged |= checkAndSaveInt(&pebblefont, pebblefontTuple->value->int32, CONFIG_KEY_PEBBLEFONT);
     somethingChanged |= checkAndSaveString(themeCodeText, themeCodeTuple->value->cstring, CONFIG_KEY_THEMECODE);
     logVariables("ReceiveHandler");
 
@@ -656,6 +676,12 @@ static void readConfig() {
     dial = persist_read_int(CONFIG_KEY_DIAL);
   } else {
     dial = 1;
+  }
+
+  if (persist_exists(CONFIG_KEY_PEBBLEFONT)) {
+    pebblefont = persist_read_int(CONFIG_KEY_PEBBLEFONT);
+  } else {
+    pebblefont = 0;
   }
 
   if (persist_exists(CONFIG_KEY_THEMECODE)) {
@@ -713,6 +739,10 @@ static void init() {
   app_message_init();
 
   battery_gauge_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_BATTERY_GAUGE_SUBSET_8));
+  pebble_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LECO_DIGITS_48));
+  default_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
+
+  setFont();
 
   initBatteryMarkPaths();
 
@@ -752,6 +782,7 @@ static void deinit() {
 
   destroyBatteryMarkPaths();
 
+  fonts_unload_custom_font(pebble_font);
   fonts_unload_custom_font(battery_gauge_font);
 }
 
